@@ -1,0 +1,1319 @@
+:root {
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, ui-monospace, 'DejaVu Sans Mono', monospace;
+  /* Must match TITLE_BAR_HEIGHT in main.js. */
+  --topbar-height: 48px;
+  --scrollbar: 10px;
+  --removed: #e5484d;
+  --added: #30a46c;
+  --changed: #e2a336;
+}
+
+/* --chrome is the window background around the sheet; main.js mirrors it.
+   --chrome-tint replaces it when the window sits on the Windows backdrop. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --chrome: #f3f3f3;
+  --chrome-tint: transparent;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --segment: #ffffff;
+  --border: #e6e6e9;
+  --border-strong: #d6d6db;
+  --text: #18181b;
+  --muted: #6b6b76;
+  --faint: #a3a3ad;
+  --control: rgba(0, 0, 0, 0.05);
+  --control-hover: rgba(0, 0, 0, 0.09);
+  --switch-off: rgba(0, 0, 0, 0.22);
+  --accent: #4263eb;
+  --accent-hover: #3655d4;
+  --accent-soft: rgba(66, 99, 235, 0.1);
+  --selection: rgba(66, 99, 235, 0.22);
+  --removed-bg: rgba(229, 72, 77, 0.08);
+  --removed-hl: rgba(229, 72, 77, 0.26);
+  --removed-text: #c62a2f;
+  --added-bg: rgba(48, 164, 108, 0.1);
+  --added-hl: rgba(48, 164, 108, 0.3);
+  --added-text: #18794e;
+  --hatch: rgba(0, 0, 0, 0.05);
+  --scroll-thumb: rgba(0, 0, 0, 0.2);
+  --scroll-thumb-hover: rgba(0, 0, 0, 0.36);
+  --sheet-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --chrome: #202020;
+  --chrome-tint: transparent;
+  --surface: #272727;
+  --raised: #333333;
+  --segment: rgba(255, 255, 255, 0.13);
+  --border: #353535;
+  --border-strong: #454545;
+  --text: #ededed;
+  --muted: #a3a3a3;
+  --faint: #707070;
+  --control: rgba(255, 255, 255, 0.07);
+  --control-hover: rgba(255, 255, 255, 0.12);
+  --switch-off: rgba(255, 255, 255, 0.22);
+  --accent: #5b7cfa;
+  --accent-hover: #6f8dfb;
+  --accent-soft: rgba(91, 124, 250, 0.16);
+  --selection: rgba(91, 124, 250, 0.36);
+  --removed-bg: rgba(229, 72, 77, 0.14);
+  --removed-hl: rgba(229, 72, 77, 0.42);
+  --removed-text: #ff8589;
+  --added-bg: rgba(48, 164, 108, 0.14);
+  --added-hl: rgba(48, 164, 108, 0.44);
+  --added-text: #5fd09a;
+  --hatch: rgba(255, 255, 255, 0.045);
+  --scroll-thumb: rgba(255, 255, 255, 0.2);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.36);
+  --sheet-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme='oled'] {
+  color-scheme: dark;
+  --chrome: #000000;
+  /* Darkens the backdrop without hiding it; the sheet itself stays black. */
+  --chrome-tint: rgba(0, 0, 0, 0.25);
+  --surface: #000000;
+  --raised: #101010;
+  --segment: rgba(255, 255, 255, 0.15);
+  --border: #1f1f1f;
+  --border-strong: #2c2c2c;
+  --text: #e8e8e8;
+  --muted: #8f8f8f;
+  --faint: #5e5e5e;
+  --control: rgba(255, 255, 255, 0.08);
+  --control-hover: rgba(255, 255, 255, 0.14);
+  --switch-off: rgba(255, 255, 255, 0.22);
+  --accent: #5b7cfa;
+  --accent-hover: #6f8dfb;
+  --accent-soft: rgba(91, 124, 250, 0.18);
+  --selection: rgba(91, 124, 250, 0.4);
+  --removed-bg: rgba(229, 72, 77, 0.16);
+  --removed-hl: rgba(229, 72, 77, 0.46);
+  --removed-text: #ff8589;
+  --added-bg: rgba(48, 164, 108, 0.15);
+  --added-hl: rgba(48, 164, 108, 0.48);
+  --added-text: #5fd09a;
+  --hatch: rgba(255, 255, 255, 0.06);
+  --scroll-thumb: rgba(255, 255, 255, 0.2);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.36);
+  --sheet-shadow: none;
+  --shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 32px rgba(0, 0, 0, 0.8);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+/* The sidebar on the left, the top bar and the workspace on show beside it. */
+body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+  background: var(--chrome);
+  color: var(--text);
+  font: 13px/1.4 var(--font-ui);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.material body {
+  background: var(--chrome-tint);
+}
+
+/* The light backdrop is a shade darker than --chrome, and the muted text on
+   it a shade darker to match. */
+.material[data-theme='light'] :is(.sidebar, .topbar) {
+  --muted: #5c5c66;
+}
+
+body,
+.sheet,
+.pane-head,
+.pane-body,
+.segmented,
+.navigator,
+.toast,
+textarea {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar);
+  height: var(--scrollbar);
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--scroll-thumb);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-hover);
+}
+
+.icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* Buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.btn:hover {
+  background: var(--control-hover);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.btn.primary {
+  min-width: 118px;
+  justify-content: center;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn.ghost:hover {
+  background: var(--control);
+  color: var(--text);
+}
+
+.btn.icon-btn {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Sidebar: switches between the kinds of comparison. Like the top bar it is
+   part of the window chrome, so the backdrop shows through both, and a drag
+   region. Collapsed it keeps its icons, which stay where they are; the rest
+   is cut off or faded out. */
+
+.sidebar {
+  grid-area: 1 / 1 / 3 / 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 180px;
+  padding: 0 8px;
+  overflow: hidden;
+  transition: width 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+  -webkit-app-region: drag;
+}
+
+.sidebar-collapsed .sidebar {
+  width: 56px;
+}
+
+.sidebar .btn,
+.sidebar-item {
+  flex: none;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--topbar-height);
+  /* Puts the toggle in the middle of the collapsed sidebar. */
+  padding-left: 5px;
+}
+
+.logo {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: var(--accent);
+}
+
+.sidebar-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  /* Likewise centres the icon when collapsed. */
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.sidebar-item .icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.6;
+}
+
+.sidebar-item span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar-item span,
+.logo {
+  transition: opacity 0.12s ease;
+}
+
+.sidebar-collapsed .sidebar-item span,
+.sidebar-collapsed .logo {
+  opacity: 0;
+}
+
+.sidebar-item:hover {
+  background: var(--control);
+  color: var(--text);
+}
+
+.sidebar-item[aria-current='true'] {
+  background: var(--control);
+  color: var(--text);
+}
+
+.sidebar-item[aria-current='true'] .icon {
+  color: var(--accent);
+}
+
+/* The mark of the workspace on show, at the edge of the window. */
+.sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateY(-50%);
+  transition: height 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.sidebar-item[aria-current='true']::before {
+  height: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}
+
+/* Top bar: doubles as the window title bar, so it is a drag region and
+   keeps clear of the caption buttons on the right. */
+
+.topbar {
+  grid-area: 1 / 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: calc(100vw - env(titlebar-area-width, 100vw) + 10px);
+  /* What fits depends on the window and the sidebar; see the end of the
+     top bar's styles. */
+  container: topbar / inline-size;
+  -webkit-app-region: drag;
+}
+
+.topbar > .btn,
+.topbar > .segmented {
+  flex: none;
+}
+
+.topbar .btn,
+.topbar .switch,
+.topbar .segmented {
+  -webkit-app-region: no-drag;
+}
+
+.logo-back {
+  opacity: 0.45;
+}
+
+/* The one part of the top bar that gives way when even the short theme
+   switch leaves too little room: its labels are cut short. */
+.topbar > .switches {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.switches {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.12s ease;
+}
+
+.switch span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.switch:hover,
+.switch:has(input:checked) {
+  color: var(--text);
+}
+
+.switch input {
+  flex: none;
+  position: relative;
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  border-radius: 999px;
+  appearance: none;
+  background: var(--switch-off);
+  transition: background-color 0.15s ease;
+}
+
+.switch input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.switch input:checked {
+  background: var(--accent);
+}
+
+.switch input:checked::after {
+  transform: translateX(12px);
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--control);
+}
+
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 500;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-checked='true'] {
+  background: var(--segment);
+  color: var(--text);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.14),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+.segmented .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Too little room in the top bar for the names of the themes. */
+@container topbar (max-width: 900px) {
+  .segmented span {
+    display: none;
+  }
+
+  .segmented button {
+    padding: 0 8px;
+  }
+}
+
+/* Sheet: the content surface floating on the window chrome. Each workspace
+   is one; only the one on show takes up the space. */
+
+.sheet {
+  grid-area: 2 / 2;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: 0 8px 8px 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--sheet-shadow);
+}
+
+.pane-heads {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Keeps the centre divider in line with the diff rows, which lose the
+   scrollbar's width. */
+.sheet.comparing .pane-heads {
+  padding-right: var(--scrollbar);
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 8px 0 16px;
+  min-width: 0;
+}
+
+.pane-head:first-child,
+.pane-body:first-child,
+.file-pane:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.pane-title {
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.pane-name {
+  min-width: 0;
+  padding: 3px 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--control);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-name:empty {
+  display: none;
+}
+
+/* File details popover, anchored under its info button; app.js names the
+   anchor of each. */
+
+.details {
+  inset: auto;
+  top: anchor(bottom);
+  left: anchor(left);
+  position-try-fallbacks: flip-inline;
+  width: 360px;
+  max-height: min(70vh, 560px);
+  margin: 6px 0 0;
+  padding: 2px 16px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  user-select: text;
+}
+
+.details:popover-open {
+  animation: pop 0.16s ease-out;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* The same details are laid out in the open for the files being compared. */
+
+:is(.details, .file-card) section {
+  padding: 14px 0;
+}
+
+:is(.details, .file-card) section + section {
+  border-top: 1px solid var(--border-strong);
+}
+
+:is(.details, .file-card) h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+:is(.details, .file-card) dl {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 7px 12px;
+  margin: 0;
+}
+
+:is(.details, .file-card) dt {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+:is(.details, .file-card) dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet.drop-left::after,
+.sheet.drop-right::after {
+  content: 'Drop to load';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: calc(50% - 9px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.sheet.drop-left::after {
+  left: 6px;
+}
+
+.sheet.drop-right::after {
+  right: 6px;
+}
+
+/* Edit view, and the files view laid out like it */
+
+.edit-view,
+.files-view {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.pane-body {
+  position: relative;
+  min-height: 0;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: 13px/1.6 var(--font-mono);
+  font-variant-ligatures: none;
+  user-select: text;
+}
+
+/* The text of a spreadsheet: one row per line, its cells on tab stops. */
+textarea.table-text {
+  white-space: pre;
+}
+
+.empty-hint {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+textarea:placeholder-shown ~ .empty-hint,
+.file-pane .empty-hint {
+  display: flex;
+}
+
+.empty-hint .icon {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 10px;
+  color: var(--faint);
+  stroke-width: 1.25;
+}
+
+.empty-hint strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Files view: on each side the details of a file and its checksum, which
+   takes the colour of the verdict. */
+
+.file-pane {
+  position: relative;
+  min-height: 0;
+  padding: 14px 24px;
+  overflow-y: auto;
+}
+
+.file-pane .empty-hint {
+  padding: 0 24px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.file-card {
+  max-width: 480px;
+  margin: 0 auto;
+  user-select: text;
+}
+
+/* Two even lines, which are easier to check by eye. */
+.file-card section:last-child dd {
+  max-width: 32ch;
+  font: 12.5px/1.6 var(--font-mono);
+}
+
+.sheet[data-verdict='identical'] .file-card section:last-child dd {
+  color: var(--added-text);
+}
+
+.sheet[data-verdict='different'] .file-card section:last-child dd {
+  color: var(--removed-text);
+}
+
+/* Diff view */
+
+.diff-note {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--added-bg);
+  color: var(--added-text);
+  font-weight: 500;
+}
+
+.diff-note.neutral {
+  background: transparent;
+  color: var(--muted);
+}
+
+.diff-note.neutral .icon {
+  display: none;
+}
+
+.diff-note.different {
+  background: var(--removed-bg);
+  color: var(--removed-text);
+}
+
+.diff-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  font: 13px/1.6 var(--font-mono);
+  font-variant-ligatures: none;
+  user-select: text;
+}
+
+.row {
+  flex: none;
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 52px minmax(0, 1fr);
+}
+
+/* Half a line of space, so the first line doesn't sit against the frame. */
+.row.lead {
+  height: 10px;
+}
+
+.row.lead .cell {
+  min-height: 0;
+}
+
+/* Fills the space below the last line so the centre divider runs all the
+   way down, and leaves room for the navigator. */
+.row.tail {
+  flex: 1 0 84px;
+}
+
+.only-diff .row.equal {
+  display: none;
+}
+
+.num {
+  padding-right: 12px;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: calc(13px * 1.6);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.cell {
+  min-width: 0;
+  min-height: calc(13px * 1.6);
+  padding: 0 14px 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cell.l {
+  border-right: 1px solid var(--border);
+}
+
+.row.removed .l,
+.row.changed .l {
+  background: var(--removed-bg);
+}
+
+.row.added .r,
+.row.changed .r {
+  background: var(--added-bg);
+}
+
+.row.removed .num.l,
+.row.changed .num.l {
+  box-shadow: inset 3px 0 0 var(--removed);
+  color: var(--removed-text);
+}
+
+.row.added .num.r,
+.row.changed .num.r {
+  box-shadow: inset 3px 0 0 var(--added);
+  color: var(--added-text);
+}
+
+.cell.l .hl {
+  border-radius: 3px;
+  background: var(--removed-hl);
+}
+
+.cell.r .hl {
+  border-radius: 3px;
+  background: var(--added-hl);
+}
+
+.row .filler {
+  background-image: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 7px);
+}
+
+.row.current::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  pointer-events: none;
+}
+
+/* Sheet tabs: one per pair of sheets, when the spreadsheets have several. */
+
+.sheet-tabs {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.sheet-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.sheet-tab:hover {
+  background: var(--control);
+  color: var(--text);
+}
+
+.sheet-tab[aria-selected='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sheet-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--changed) 24%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: center;
+}
+
+.sheet-count.removed {
+  background: var(--removed-hl);
+}
+
+.sheet-count.added {
+  background: var(--added-hl);
+}
+
+/* Table view: two spreadsheets side by side. The rows of both sides share
+   one vertical scroller, and their cells move sideways together by --x. */
+
+.table-view {
+  /* Must match ROW_HEIGHT in table-view.js. */
+  --grid-row: 28px;
+  /* Width of the row numbers; table-view.js widens it for long sheets. */
+  --grid-gutter: 52px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-head,
+.grid-row,
+.grid-bars {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.grid-head,
+.grid-bars {
+  flex: none;
+  padding-right: var(--scrollbar);
+}
+
+.grid-head {
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.grid-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  user-select: text;
+}
+
+.grid-rows {
+  position: relative;
+  min-height: 100%;
+}
+
+.grid-window {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.grid-row {
+  position: relative;
+  height: var(--grid-row);
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-half {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--grid-gutter) minmax(0, 1fr);
+  min-width: 0;
+}
+
+/* The centre divider is drawn on top instead of as a border, so that both
+   sides show exactly the same width of cells. */
+.grid-half.l::after,
+.grid-rows::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.grid-half.l::after {
+  right: 0;
+}
+
+.grid-rows::before {
+  left: calc(50% - 1px);
+}
+
+.grid-num {
+  padding-right: 12px;
+  box-shadow: inset -1px 0 0 var(--border);
+  color: var(--faint);
+  font-size: 12px;
+  line-height: calc(var(--grid-row) - 1px);
+  text-align: right;
+  user-select: none;
+}
+
+.grid-cells {
+  overflow: hidden;
+}
+
+.grid-strip {
+  display: grid;
+  grid-template-columns: var(--columns);
+  margin-left: var(--strip-start, 0px);
+  transform: translateX(calc(-1 * var(--x, 0px)));
+}
+
+.grid-cell {
+  padding: 0 10px;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  line-height: calc(var(--grid-row) - 1px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grid-cell.numeric {
+  text-align: right;
+}
+
+.grid-head .grid-cell {
+  line-height: 25px;
+  text-align: center;
+  user-select: none;
+}
+
+/* A column the other side doesn't have. */
+.grid-half.l .grid-cell.only {
+  background: var(--removed-bg);
+}
+
+.grid-half.r .grid-cell.only {
+  background: var(--added-bg);
+}
+
+.grid-head .l .grid-cell.only {
+  color: var(--removed-text);
+}
+
+.grid-head .r .grid-cell.only {
+  color: var(--added-text);
+}
+
+.grid-row.removed .l,
+.grid-row.changed .l {
+  background: var(--removed-bg);
+}
+
+.grid-row.added .r,
+.grid-row.changed .r {
+  background: var(--added-bg);
+}
+
+.grid-row.removed .l .grid-num,
+.grid-row.changed .l .grid-num {
+  box-shadow:
+    inset 3px 0 0 var(--removed),
+    inset -1px 0 0 var(--border);
+  color: var(--removed-text);
+}
+
+.grid-row.added .r .grid-num,
+.grid-row.changed .r .grid-num {
+  box-shadow:
+    inset 3px 0 0 var(--added),
+    inset -1px 0 0 var(--border);
+  color: var(--added-text);
+}
+
+.grid-half.l .grid-cell.hl {
+  background: var(--removed-hl);
+}
+
+.grid-half.r .grid-cell.hl {
+  background: var(--added-hl);
+}
+
+.grid-half.filler,
+.grid-cell.filler {
+  background-image: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 7px);
+}
+
+.grid-row.current::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  pointer-events: none;
+}
+
+.grid-bar {
+  height: var(--scrollbar);
+  margin-left: var(--grid-gutter);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.grid-bar > div {
+  height: 1px;
+}
+
+/* Navigator: floating summary and previous/next controls */
+
+.navigator {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 42px;
+  padding: 0 6px 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--raised) 82%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px) saturate(1.6);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: rise 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+.stats {
+  display: flex;
+  gap: 14px;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.stat.changed::before {
+  background: var(--changed);
+}
+
+.stat.removed::before {
+  background: var(--removed);
+}
+
+.stat.added::before {
+  background: var(--added);
+}
+
+.navigator-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 8px 0 12px;
+  background: var(--border-strong);
+}
+
+.navigator .btn {
+  border-radius: 999px;
+}
+
+.position {
+  min-width: 86px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Toast */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, 80%);
+  padding: 10px 16px 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--raised);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+  animation: rise 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.toast .icon {
+  color: var(--removed);
+}

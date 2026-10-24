@@ -1,0 +1,44 @@
+{
+  "name": "compare",
+  "version": "1.0.0",
+  "description": "Side-by-side comparison of two texts or documents",
+  "author": "Klaus",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --win zip --x64 -c.win.signAndEditExecutable=false",
+    "dist:installer": "electron-builder --win nsis portable --x64"
+  },
+  "build": {
+    "appId": "ch.klaus.compare",
+    "productName": "Compare",
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!node_modules/@napi-rs/**"
+    ],
+    "win": {
+      "icon": "src/icon.png"
+    },
+    "nsis": {
+      "artifactName": "Compare-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Compare-Portable-${version}.${ext}"
+    },
+    "artifactName": "Compare-${version}-win-x64.${ext}"
+  },
+  "dependencies": {
+    "diff": "^9.0.0",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^6.4.299",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  }
+}

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <title>Compare</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="theme.js"></script>
+  </head>
+  <body>
+    <svg hidden>
+      <symbol id="i-compare" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="7.5" height="16" rx="2" />
+        <rect x="13.5" y="4" width="7.5" height="16" rx="2" />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24">
+        <path d="M21.17 6.81a2.82 2.82 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />
+        <path d="m15 5 4 4" />
+      </symbol>
+      <symbol id="i-swap" viewBox="0 0 24 24">
+        <path d="M8 3 4 7l4 4" />
+        <path d="M4 7h16" />
+        <path d="m16 21 4-4-4-4" />
+        <path d="M20 17H4" />
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
+      </symbol>
+      <symbol id="i-oled" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" fill="currentColor" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z" />
+      </symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+        <path d="M16 13H8M16 17H8M10 9H8" />
+      </symbol>
+      <symbol id="i-table" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18M3 15h18M9 9v12M15 9v12" />
+      </symbol>
+      <symbol id="i-files" viewBox="0 0 24 24">
+        <path d="M20 7h-3a2 2 0 0 1-2-2V2" />
+        <path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2z" />
+        <path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8" />
+      </symbol>
+      <symbol id="i-sidebar" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 3v18" />
+      </symbol>
+      <symbol id="i-up" viewBox="0 0 24 24">
+        <path d="m18 15-6-6-6 6" />
+      </symbol>
+      <symbol id="i-down" viewBox="0 0 24 24">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+      </symbol>
+      <symbol id="i-cross" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m9 9 6 6M15 9l-6 6" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M12 16.5v-5M12 7.5h.01" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M12 7.5v5M12 16.5h.01" />
+      </symbol>
+    </svg>
+
+    <nav id="sidebar" class="sidebar" aria-label="Kind of comparison">
+      <div class="sidebar-head">
+        <button id="sidebar-toggle" class="btn ghost icon-btn" aria-controls="sidebar">
+          <svg class="icon" aria-hidden="true"><use href="#i-sidebar" /></svg>
+        </button>
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="logo-back" x="2.5" y="4" width="8.5" height="16" rx="2.5" />
+          <rect class="logo-front" x="13" y="4" width="8.5" height="16" rx="2.5" />
+        </svg>
+      </div>
+      <button class="sidebar-item" data-kind="docs" title="Documents: text, Word and PDF (Ctrl+1)">
+        <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
+        <span>Documents</span>
+      </button>
+      <button class="sidebar-item" data-kind="sheets" title="Spreadsheets: Excel, OpenDocument and CSV (Ctrl+2)">
+        <svg class="icon" aria-hidden="true"><use href="#i-table" /></svg>
+        <span>Spreadsheets</span>
+      </button>
+      <button class="sidebar-item" data-kind="files" title="Files: any two files, checked by their SHA-256 checksums (Ctrl+3)">
+        <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
+        <span>Files</span>
+      </button>
+    </nav>
+
+    <header class="topbar">
+      <button id="compare-btn" class="btn primary" title="Ctrl+Enter">
+        <svg class="icon" aria-hidden="true"><use id="compare-icon" href="#i-compare" /></svg>
+        <span id="compare-label">Compare</span>
+      </button>
+      <button id="swap-btn" class="btn icon-btn" title="Swap sides" aria-label="Swap sides">
+        <svg class="icon" aria-hidden="true"><use href="#i-swap" /></svg>
+      </button>
+
+      <div class="switches">
+        <label class="switch" title="Ignore case"><input type="checkbox" id="opt-case" /><span>Ignore case</span></label>
+        <label class="switch" title="Ignore whitespace"><input type="checkbox" id="opt-space" /><span>Ignore whitespace</span></label>
+        <label class="switch" title="Differences only"><input type="checkbox" id="opt-only" /><span>Differences only</span></label>
+      </div>
+
+      <span class="spacer"></span>
+
+      <div id="theme-switch" class="segmented" role="radiogroup" aria-label="Theme">
+        <button role="radio" data-theme="light" title="Light">
+          <svg class="icon" aria-hidden="true"><use href="#i-sun" /></svg><span>Light</span>
+        </button>
+        <button role="radio" data-theme="dark" title="Dark">
+          <svg class="icon" aria-hidden="true"><use href="#i-moon" /></svg><span>Dark</span>
+        </button>
+        <button role="radio" data-theme="oled" title="OLED black">
+          <svg class="icon" aria-hidden="true"><use href="#i-oled" /></svg><span>OLED</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- One workspace per kind of comparison; app.js makes a copy for each. -->
+    <template id="workspace">
+      <section class="sheet" hidden>
+        <div class="pane-heads">
+        <div class="pane-head" data-side="left">
+          <span class="pane-title">Original</span>
+          <span class="pane-name"></span>
+          <button class="btn ghost icon-btn info-btn" title="File details" aria-label="File details" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+          </button>
+          <div class="details" popover></div>
+          <span class="spacer"></span>
+          <button class="btn ghost open-btn">
+            <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>Open file
+          </button>
+          <button class="btn ghost clear-btn">Clear</button>
+          <input type="file" hidden />
+        </div>
+        <div class="pane-head" data-side="right">
+          <span class="pane-title">Changed</span>
+          <span class="pane-name"></span>
+          <button class="btn ghost icon-btn info-btn" title="File details" aria-label="File details" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+          </button>
+          <div class="details" popover></div>
+          <span class="spacer"></span>
+          <button class="btn ghost open-btn">
+            <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>Open file
+          </button>
+          <button class="btn ghost clear-btn">Clear</button>
+          <input type="file" hidden />
+        </div>
+        </div>
+
+        <div class="sheet-body">
+          <div class="edit-view">
+          <div class="pane-body" data-side="left">
+            <textarea spellcheck="false" placeholder=" "></textarea>
+            <div class="empty-hint">
+              <svg class="icon" aria-hidden="true"><use /></svg>
+              <strong></strong>
+              <span></span>
+            </div>
+          </div>
+          <div class="pane-body" data-side="right">
+            <textarea spellcheck="false" placeholder=" "></textarea>
+            <div class="empty-hint">
+              <svg class="icon" aria-hidden="true"><use /></svg>
+              <strong></strong>
+              <span></span>
+            </div>
+          </div>
+          </div>
+
+          <div class="sheet-tabs" role="tablist" aria-label="Sheets" hidden></div>
+          <div class="diff-note" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+            <span></span>
+          </div>
+          <div class="diff-view" hidden></div>
+
+          <div class="files-view" hidden>
+          <div class="file-pane" data-side="left">
+            <div class="file-card" hidden></div>
+            <div class="empty-hint">
+              <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
+              <strong></strong>
+              <span></span>
+            </div>
+          </div>
+          <div class="file-pane" data-side="right">
+            <div class="file-card" hidden></div>
+            <div class="empty-hint">
+              <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
+              <strong></strong>
+              <span></span>
+            </div>
+          </div>
+          </div>
+
+          <div class="table-view" hidden>
+            <div class="grid-head">
+            <div class="grid-half l">
+              <div class="grid-num"></div>
+              <div class="grid-cells"><div class="grid-strip"></div></div>
+            </div>
+            <div class="grid-half r">
+              <div class="grid-num"></div>
+              <div class="grid-cells"><div class="grid-strip"></div></div>
+            </div>
+            </div>
+            <div class="grid-scroll">
+              <div class="grid-rows"><div class="grid-window"></div></div>
+            </div>
+            <div class="grid-bars" hidden>
+              <div class="grid-bar"><div></div></div>
+              <div class="grid-bar"><div></div></div>
+            </div>
+          </div>
+
+          <div class="navigator" hidden>
+            <div class="stats"></div>
+            <span class="navigator-divider"></span>
+            <button class="btn ghost icon-btn prev-btn" title="Previous difference (Shift+F8)" aria-label="Previous difference">
+              <svg class="icon" aria-hidden="true"><use href="#i-up" /></svg>
+            </button>
+            <span class="position"></span>
+            <button class="btn ghost icon-btn next-btn" title="Next difference (F8)" aria-label="Next difference">
+              <svg class="icon" aria-hidden="true"><use href="#i-down" /></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <div id="message" class="toast" role="alert" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+      <span></span>
+    </div>
+
+    <script src="../../node_modules/diff/dist/diff.min.js"></script>
+    <script src="diff-engine.js"></script>
+    <script src="../table-text.js"></script>
+    <script src="table-diff.js"></script>
+    <script src="table-view.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
