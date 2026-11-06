@@ -105,7 +105,7 @@ async function parseDocx(buffer) {
   // mammoth separates paragraphs with a blank line; one paragraph per line
   // gives a much more readable comparison.
   const text = value.replace(/\n{2,}/g, '\n').trim();
-  return { text, properties: await docxProperties(buffer) };
+  return { text, properties: await docxProperties(buffer), source: { kind: 'docx', bytes: buffer } };
 }
 
 async function parsePdf(buffer) {
@@ -159,7 +159,7 @@ async function parsePdf(buffer) {
       doc.numPages > 0 && pages.every((text) => text === '')
         ? "This PDF has no text to compare. It's probably made of scanned pages."
         : undefined;
-    return { text: pages.join('\n\n'), properties, warning };
+    return { text: pages.join('\n\n'), properties, warning, source: { kind: 'pdf', bytes: buffer } };
   } finally {
     await task.destroy();
   }
@@ -358,13 +358,15 @@ async function readFromDisk(filePath) {
 // as groups of { label, value } items; spreadsheets also return their
 // `sheets` as [{ name, rows }] with rows of cell texts. With `table` set,
 // plain text counts as a spreadsheet too. `warning` says when a file opened
-// but likely isn't what was expected.
+// but likely isn't what was expected. Word files and PDFs come with their
+// `source`, { kind, bytes }, for the document view to show them as they
+// look.
 async function parseFile(file) {
   const buffer = file.bytes ? Buffer.from(file.bytes) : await readFromDisk(file.filePath);
-  const { text, properties, sheets, warning } = await parseContent(file.name, buffer, file.table);
+  const { text, properties, sheets, warning, source } = await parseContent(file.name, buffer, file.table);
   const content = sheets ? sheetProperties(sheets) : contentProperties(text);
   const details = [await fileProperties(file, buffer.length), properties, content];
-  return { text, sheets, warning, details: details.filter((entry) => entry.items.length > 0) };
+  return { text, sheets, warning, source, details: details.filter((entry) => entry.items.length > 0) };
 }
 
 module.exports = { parseFile, fileProperties, isoDateFormat };

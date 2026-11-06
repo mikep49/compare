@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "diff": "^9.0.0",
+    "docx-preview": "^0.4.1",
     "jszip": "^3.10.2",
     "mammoth": "^1.13.0",
     "pdfjs-dist": "^6.4.299",
