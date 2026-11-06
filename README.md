@@ -78,3 +78,7 @@ git push origin v1.1.0
 ```
 
 GitHub Actions runs the tests, builds the installer and the portable exe, and publishes them as a release. Tests also run on every push to `main` and on pull requests.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
