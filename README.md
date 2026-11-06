@@ -20,7 +20,7 @@ When you compare Word files or PDFs, the **Text | Document** switch in the top b
 - **Text** shows the lines of both side by side.
 - **Document** shows the files themselves, pages and all, with the same changes marked on them: removed and changed words in red on the original, added and changed words in green on the changed one.
 
-Going from change to change (F8) and Find work in both. In the Document view the two documents scroll together (the link button at the bottom right turns that off) and the pages fit the width of the window; zoom with − and + or with Ctrl+mouse wheel over the documents. A side with pasted or typed text is shown as a page of plain text. The app remembers which view you used last.
+Going from change to change (F8) and Find work in both. In the Document view each document scrolls on its own, so the mouse wheel moves only the one it's over (the link button at the bottom right makes them scroll together), and the pages fit the width of the window; zoom with − and + or with Ctrl+mouse wheel over the documents. A side with pasted or typed text is shown as a page of plain text. The app remembers which view you used last.
 
 ## Table or sheet
 
@@ -29,7 +29,7 @@ When you compare Excel or OpenDocument workbooks, the **Table | Sheet** switch d
 - **Table** lines up the rows of both side by side.
 - **Sheet** shows each spreadsheet as Excel does – column widths, row heights, fonts, fill colors, borders, merged cells and gridlines – with the changes marked on it: rows and cells that changed in red on the original and green on the changed one, and the same for rows and columns only one of them has.
 
-F8, Find, the sheet tabs, scrolling together and zoom work as in the Document view; zoom with − and + or with Ctrl+mouse wheel over the sheets, and click the zoom level to go back to 100%. Rows and columns hidden in a workbook stay hidden, unless something changed in them. Excel files (`.xlsx`, `.xlsm`) show all of their formatting; `.xls`, `.xlsb` and `.ods` files show their column widths, row heights and merged cells. A side with pasted cells or a CSV file is shown as a plain sheet.
+F8, Find, the sheet tabs, scrolling (each sheet on its own, or together with the link button) and zoom work as in the Document view; zoom with − and + or with Ctrl+mouse wheel over the sheets, and click the zoom level to go back to 100%. Rows and columns hidden in a workbook stay hidden, unless something changed in them. Excel files (`.xlsx`, `.xlsm`) show all of their formatting; `.xls`, `.xlsb` and `.ods` files show their column widths, row heights and merged cells. A side with pasted cells or a CSV file is shown as a plain sheet.
 
 ## Light or dark pages
 

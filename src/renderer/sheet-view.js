@@ -121,11 +121,13 @@ function createSheetView(root) {
   let matches = [];
   let currentMatch = -1;
   let zoom = 1;
-  let syncOn = true;
+  // Off unless turned on, so that the mouse wheel scrolls only the sheet
+  // it's over.
+  let syncOn = false;
   try {
-    syncOn = localStorage.getItem('sheetScrollTogether') !== 'off';
+    syncOn = localStorage.getItem('sheetScrollTogether') === 'on';
   } catch {
-    // Scrolling together is the default.
+    // Scrolling on their own is the default.
   }
   // Positions that go together, worked out when first needed.
   let syncTable = null;
