@@ -2,7 +2,8 @@
   "name": "compare",
   "version": "1.2.0",
   "description": "Side-by-side comparison of two texts or documents",
-  "author": "Klaus",
+  "author": "mikep49",
+  "license": "MIT",
   "private": true,
   "main": "src/main.js",
   "scripts": {
@@ -12,7 +13,7 @@
     "dist:installer": "electron-builder --win nsis portable --x64"
   },
   "build": {
-    "appId": "ch.klaus.compare",
+    "appId": "io.github.mikep49.compare",
     "productName": "Compare",
     "files": [
       "src/**/*",
