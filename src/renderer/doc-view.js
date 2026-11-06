@@ -70,11 +70,13 @@ function createDocView(root, { onFindChange } = {}) {
   let fit = true;
   let pixelRatio = window.devicePixelRatio;
   let redrawTimer = null;
-  let syncOn = true;
+  // Off unless turned on, so that the mouse wheel scrolls only the
+  // document it's over.
+  let syncOn = false;
   try {
-    syncOn = localStorage.getItem('docScrollTogether') !== 'off';
+    syncOn = localStorage.getItem('docScrollTogether') === 'on';
   } catch {
-    // Scrolling together is the default.
+    // Scrolling on their own is the default.
   }
   // Pairs of places in the two documents' texts that go together, and the
   // same as scroll positions, worked out when first needed.

@@ -176,14 +176,19 @@ function tabStop(text) {
   return Math.min(Math.max(typical + 2, 8), 28);
 }
 
-function buildCell(side, sideClass) {
+// A side of a row of the text comparison. A side without a line is hatched
+// where the other side's line is missing from it, and left empty where it
+// only has fewer blank lines (`spacing`).
+function buildCell(side, sideClass, spacing) {
   const num = document.createElement('div');
   const cell = document.createElement('div');
   num.className = `num ${sideClass}`;
   cell.className = `cell ${sideClass}`;
   if (!side) {
-    num.classList.add('filler');
-    cell.classList.add('filler');
+    if (!spacing) {
+      num.classList.add('filler');
+      cell.classList.add('filler');
+    }
     return [num, cell];
   }
   num.textContent = side.num;
@@ -513,7 +518,8 @@ function createWorkspace(kind) {
     rows.forEach((row, index) => {
       const rowEl = document.createElement('div');
       rowEl.className = `row ${row.type}`;
-      rowEl.append(...buildCell(row.left, 'l'), ...buildCell(row.right, 'r'));
+      const spacing = row.type === 'equal';
+      rowEl.append(...buildCell(row.left, 'l', spacing), ...buildCell(row.right, 'r', spacing));
       if (hidden[index]) {
         rowEl.classList.add('far');
         if (!run) {

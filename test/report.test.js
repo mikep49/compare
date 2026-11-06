@@ -86,3 +86,26 @@ test('hidden rows keep the context around each difference', () => {
   const rows = ['equal', 'equal', 'equal', 'equal', 'equal', 'changed', 'equal', 'equal', 'equal', 'equal', 'equal'].map((type) => ({ type }));
   assert.deepEqual(DiffEngine.hiddenRows(rows, 3), [true, true, false, false, false, false, false, false, false, true, true]);
 });
+
+test('a patch keeps the blank lines only one side has, so it still applies exactly', () => {
+  const leftText = 'First paragraph.\n\n\nSecond paragraph here.\n\n\n' + lines(12).join('\n\n') + '\n';
+  const rightText = 'First paragraph.\n\nSecond paragraph there.\n\n' + lines(12).join('\n\n\n') + '\n\n';
+  const { rows } = DiffEngine.compare(leftText, rightText);
+  const patch = Report.textPatch({ rows, leftName: 'old.txt', rightName: 'new.txt' });
+  assert.equal(Diff.applyPatch(leftText, patch), rightText);
+});
+
+test('the text report leaves a side with fewer blank lines empty, not hatched', () => {
+  const { rows, stats } = DiffEngine.compare('a\n\n\nb\nc', 'a\n\nb');
+  const report = Report.textReport({
+    rows,
+    stats,
+    leftName: 'x',
+    rightName: 'y',
+    options: { ignoreCase: false, ignoreWhitespace: false },
+    created: 'today',
+  });
+  const filler = (type) => (report.match(new RegExp(`<tr class="${type}">.*`, 'g')) || []).filter((row) => row.includes('filler'));
+  assert.equal(filler('equal').length, 0);
+  assert.equal(filler('removed').length, 1);
+});
