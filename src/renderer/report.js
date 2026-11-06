@@ -24,11 +24,15 @@
   }
 
   // A unified diff, as `git diff` writes it, of the rows of
-  // DiffEngine.compare(). Empty when nothing differs.
+  // DiffEngine.compare(). Empty when nothing differs. Unlike the comparison,
+  // it has the blank lines only one side has, so that it turns the original
+  // into the changed text exactly.
+  const bothSides = (row) => Boolean(row.left && row.right);
+
   function textPatch({ rows, leftName, rightName }) {
     const runs = [];
     rows.forEach((row, index) => {
-      if (row.type === 'equal') return;
+      if (row.type === 'equal' && bothSides(row)) return;
       const last = runs[runs.length - 1];
       if (last && index - last.end <= 2 * CONTEXT + 1) last.end = index;
       else runs.push({ start: index, end: index });
@@ -57,7 +61,7 @@
         added = [];
       };
       for (const row of hunk) {
-        if (row.type === 'equal') {
+        if (row.type === 'equal' && bothSides(row)) {
           flush();
           lines.push(` ${lineText(row.left)}`);
           continue;
@@ -145,8 +149,13 @@ ${body}
   // out, as in the app.
   function textReport({ rows, stats, leftName, rightName, options, created, onlyDifferences }) {
     const hidden = onlyDifferences ? DiffEngine.hiddenRows(rows, CONTEXT) : rows.map(() => false);
-    const side = (part, sideClass) => {
-      if (!part) return `<td class="num ${sideClass} filler"></td><td class="${sideClass} filler"></td>`;
+    // As in the app: hatched where a line is missing, empty where a side only
+    // has fewer blank lines.
+    const side = (part, sideClass, spacing) => {
+      if (!part) {
+        const filler = spacing ? '' : ' filler';
+        return `<td class="num ${sideClass}${filler}"></td><td class="${sideClass}${filler}"></td>`;
+      }
       const text = part.segments
         .map((segment) => (segment.changed ? `<span class="hl">${escapeHtml(segment.text)}</span>` : escapeHtml(segment.text)))
         .join('');
@@ -161,7 +170,8 @@ ${body}
         i = end;
         continue;
       }
-      body.push(`<tr class="${rows[i].type}">${side(rows[i].left, 'l')}${side(rows[i].right, 'r')}</tr>`);
+      const spacing = rows[i].type === 'equal';
+      body.push(`<tr class="${rows[i].type}">${side(rows[i].left, 'l', spacing)}${side(rows[i].right, 'r', spacing)}</tr>`);
     }
     const title = 'Document comparison';
     return page(

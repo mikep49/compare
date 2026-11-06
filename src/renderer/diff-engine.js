@@ -131,27 +131,66 @@
     return { left: expand(sides[0], flags.left), right: expand(sides[1], flags.right) };
   }
 
+  // A line with nothing but whitespace on it, which only spaces the text out.
+  const isBlank = (line) => !/\S/.test(line);
+
+  // Lines the comparison puts side by side, as rows: { type, left, right },
+  // with `type` one of equal, changed, removed and added, and each side
+  // { num, segments } or null. Only the lines with text on them are
+  // compared, so that paragraphs line up however many blank lines there are
+  // between them. The blank lines are put back, side by side, and never
+  // count as differences: where one side has fewer of them, an equal row
+  // has null on that side, which stays empty so that the lines after it
+  // still line up.
   function compare(leftText, rightText, options) {
     const opts = { ignoreCase: false, ignoreWhitespace: false, ...options };
     const leftLines = splitLines(leftText);
     const rightLines = splitLines(rightText);
-    const leftKeys = leftLines.map((line) => lineKey(line, opts));
-    const rightKeys = rightLines.map((line) => lineKey(line, opts));
+    // The indexes of the lines with text on them.
+    const textLines = (lines) => lines.flatMap((line, i) => (isBlank(line) ? [] : [i]));
+    const leftTexts = textLines(leftLines);
+    const rightTexts = textLines(rightLines);
+    const leftKeys = leftTexts.map((i) => lineKey(leftLines[i], opts));
+    const rightKeys = rightTexts.map((i) => lineKey(rightLines[i], opts));
     const parts =
       Diff.diffArrays(leftKeys, rightKeys, { timeout: DIFF_TIMEOUT }) || partsInOrder(leftKeys, rightKeys);
 
     const rows = [];
     const stats = { changed: 0, removed: 0, added: 0 };
+    // The next line of each side to show.
     let l = 0;
     let r = 0;
+    // The next line of each side with text on it, of leftTexts and rightTexts.
+    let lt = 0;
+    let rt = 0;
     let pendingRemoved = 0;
     let pendingAdded = 0;
+
+    const line = (lines, i) => ({ num: i + 1, segments: plain(lines[i]) });
+
+    // Shows the blank lines before the next row of text, on the sides it has
+    // (`onLeft`, `onRight`). A side the row doesn't have shows as many of its
+    // own blank lines as fit beside those, and keeps the rest for its next
+    // line of text.
+    const space = (onLeft, onRight) => {
+      const leftBlanks = (lt < leftTexts.length ? leftTexts[lt] : leftLines.length) - l;
+      const rightBlanks = (rt < rightTexts.length ? rightTexts[rt] : rightLines.length) - r;
+      const count = Math.max(onLeft ? leftBlanks : 0, onRight ? rightBlanks : 0);
+      for (let i = 0; i < count; i++) {
+        rows.push({
+          type: 'equal',
+          left: i < leftBlanks ? line(leftLines, l++) : null,
+          right: i < rightBlanks ? line(rightLines, r++) : null,
+        });
+      }
+    };
 
     // A run of removed lines followed by added lines is shown as changed
     // lines, paired in order; whatever is left over stays removed or added.
     const flush = () => {
       const paired = Math.min(pendingRemoved, pendingAdded);
       for (let i = 0; i < paired; i++) {
+        space(true, true);
         const words = diffWords(leftLines[l], rightLines[r], opts);
         rows.push({
           type: 'changed',
@@ -160,14 +199,18 @@
         });
         l++;
         r++;
+        lt++;
+        rt++;
       }
       for (let i = paired; i < pendingRemoved; i++) {
-        rows.push({ type: 'removed', left: { num: l + 1, segments: plain(leftLines[l]) }, right: null });
-        l++;
+        space(true, false);
+        rows.push({ type: 'removed', left: line(leftLines, l++), right: null });
+        lt++;
       }
       for (let i = paired; i < pendingAdded; i++) {
-        rows.push({ type: 'added', left: null, right: { num: r + 1, segments: plain(rightLines[r]) } });
-        r++;
+        space(false, true);
+        rows.push({ type: 'added', left: null, right: line(rightLines, r++) });
+        rt++;
       }
       stats.changed += paired;
       stats.removed += pendingRemoved - paired;
@@ -184,17 +227,16 @@
       } else {
         flush();
         for (let i = 0; i < part.count; i++) {
-          rows.push({
-            type: 'equal',
-            left: { num: l + 1, segments: plain(leftLines[l]) },
-            right: { num: r + 1, segments: plain(rightLines[r]) },
-          });
-          l++;
-          r++;
+          space(true, true);
+          rows.push({ type: 'equal', left: line(leftLines, l++), right: line(rightLines, r++) });
+          lt++;
+          rt++;
         }
       }
     }
     flush();
+    // The blank lines after the last line of text.
+    space(true, true);
 
     return { rows, stats };
   }

@@ -78,3 +78,63 @@ test('large texts with nothing in common are compared line by line in good time'
   assert.deepEqual(stats, { changed: 29997, removed: 0, added: 1 });
   assert.equal(rows[15000].type, 'equal');
 });
+
+const sides = (rows) => rows.map((r) => [r.type, r.left && r.left.num, text(r.left), r.right && r.right.num, text(r.right)]);
+
+test('paragraphs line up however many blank lines there are between them', () => {
+  const left = 'First paragraph.\n\n\nSecond paragraph.\n\n\nThird paragraph.';
+  const right = 'First paragraph.\n\nSecond paragraph.\n\nThird paragraph.';
+  const { rows, stats } = compare(left, right);
+  // The changed text has one blank line fewer each time: it's left empty.
+  assert.deepEqual(sides(rows), [
+    ['equal', 1, 'First paragraph.', 1, 'First paragraph.'],
+    ['equal', 2, '', 2, ''],
+    ['equal', 3, '', null, null],
+    ['equal', 4, 'Second paragraph.', 3, 'Second paragraph.'],
+    ['equal', 5, '', 4, ''],
+    ['equal', 6, '', null, null],
+    ['equal', 7, 'Third paragraph.', 5, 'Third paragraph.'],
+  ]);
+  assert.deepEqual(stats, { changed: 0, removed: 0, added: 0 });
+  // The same the other way round.
+  assert.deepEqual(compare(right, left).stats, { changed: 0, removed: 0, added: 0 });
+});
+
+test('a changed paragraph stays beside its counterpart when the blank lines differ', () => {
+  const left = 'First paragraph.\n\n\nSecond paragraph here.\n\n\nThird paragraph.';
+  const right = 'First paragraph.\n\nSecond paragraph there.\n   \nThird paragraph.';
+  const { rows, stats } = compare(left, right);
+  assert.deepEqual(sides(rows), [
+    ['equal', 1, 'First paragraph.', 1, 'First paragraph.'],
+    ['equal', 2, '', 2, ''],
+    ['equal', 3, '', null, null],
+    ['changed', 4, 'Second paragraph here.', 3, 'Second paragraph there.'],
+    ['equal', 5, '', 4, '   '],
+    ['equal', 6, '', null, null],
+    ['equal', 7, 'Third paragraph.', 5, 'Third paragraph.'],
+  ]);
+  assert.deepEqual(stats, { changed: 1, removed: 0, added: 0 });
+});
+
+test('blank lines go with the paragraphs removed or added', () => {
+  assert.deepEqual(sides(compare('A\n\nGone\n\nB', 'A\n\nB').rows), [
+    ['equal', 1, 'A', 1, 'A'],
+    ['equal', 2, '', 2, ''],
+    ['removed', 3, 'Gone', null, null],
+    ['equal', 4, '', null, null],
+    ['equal', 5, 'B', 3, 'B'],
+  ]);
+  assert.deepEqual(sides(compare('A\n\nB', 'A\nNew\n\nB').rows), [
+    ['equal', 1, 'A', 1, 'A'],
+    ['added', null, null, 2, 'New'],
+    ['equal', 2, '', 3, ''],
+    ['equal', 3, 'B', 4, 'B'],
+  ]);
+  // Blank lines before the first line of text and after the last.
+  assert.deepEqual(sides(compare('\n\nA\n\n', 'A\n').rows), [
+    ['equal', 1, '', null, null],
+    ['equal', 2, '', null, null],
+    ['equal', 3, 'A', 1, 'A'],
+    ['equal', 4, '', null, null],
+  ]);
+});

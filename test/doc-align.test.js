@@ -143,3 +143,15 @@ test('a whole document lines up in good time', () => {
   const start = source.indexOf('clause 4321');
   assert.deepEqual(spans(target, aligner.ranges(start, start + 'clause 4321'.length)), ['clause 4321']);
 });
+
+test('blank lines one side has more of are passed over', () => {
+  const left = 'One.\n\n\nTwo here.\n\n\nThree.';
+  const right = 'One.\n\nTwo there.\n\nThree.';
+  const { rows } = compare(left, right);
+  assert.deepEqual(texts(left, changes(rows, left, 'left').ranges), ['here']);
+  assert.deepEqual(texts(right, changes(rows, right, 'right').ranges), ['there']);
+  assert.deepEqual(
+    spans(left, syncPoints(rows, left, right).map(([start]) => [start, left.indexOf('\n', start) + 1 || left.length])),
+    ['One.\n', '\n', 'Two here.\n', '\n', 'Three.']
+  );
+});
