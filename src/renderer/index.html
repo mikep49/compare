@@ -72,6 +72,22 @@
         <circle cx="12" cy="12" r="9.5" />
         <path d="M12 16.5v-5M12 7.5h.01" />
       </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.6-3.6" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M5 21h14" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="13" height="13" rx="2" />
+        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
       <symbol id="i-alert" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9.5" />
         <path d="M12 7.5v5M12 16.5h.01" />
@@ -110,6 +126,23 @@
       <button id="swap-btn" class="btn icon-btn" title="Swap sides" aria-label="Swap sides">
         <svg class="icon" aria-hidden="true"><use href="#i-swap" /></svg>
       </button>
+      <button id="find-btn" class="btn icon-btn" title="Find (Ctrl+F)" aria-label="Find" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+      </button>
+      <button id="export-btn" class="btn icon-btn" title="Export (Ctrl+S)" aria-label="Export" popovertarget="export-menu" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-download" /></svg>
+      </button>
+      <div id="export-menu" class="menu" popover>
+        <button data-format="html" data-kinds="docs sheets">
+          <strong>HTML report</strong><span>Both sides with the changes marked, to read or print</span>
+        </button>
+        <button data-format="patch" data-kinds="docs">
+          <strong>Patch file</strong><span>The changes as a unified diff, for git and other tools</span>
+        </button>
+        <button data-format="csv" data-kinds="sheets">
+          <strong>List of changes (CSV)</strong><span>Every changed cell, row and column, to open in Excel</span>
+        </button>
+      </div>
 
       <div class="switches">
         <label class="switch" title="Ignore case"><input type="checkbox" id="opt-case" /><span>Ignore case</span></label>
@@ -175,6 +208,10 @@
               <strong></strong>
               <span></span>
             </div>
+            <div class="pane-loading" role="status" hidden>
+              <span class="spinner"></span>
+              <span class="loading-text"></span>
+            </div>
           </div>
           <div class="pane-body" data-side="right">
             <textarea spellcheck="false" placeholder=" "></textarea>
@@ -182,6 +219,10 @@
               <svg class="icon" aria-hidden="true"><use /></svg>
               <strong></strong>
               <span></span>
+            </div>
+            <div class="pane-loading" role="status" hidden>
+              <span class="spinner"></span>
+              <span class="loading-text"></span>
             </div>
           </div>
           </div>
@@ -196,6 +237,16 @@
           <div class="files-view" hidden>
           <div class="file-pane" data-side="left">
             <div class="file-card" hidden></div>
+            <div class="verify" hidden>
+              <label>
+                <span>Check against a checksum</span>
+                <input type="text" spellcheck="false" autocomplete="off" placeholder="Paste an MD5, SHA-1, SHA-256 or SHA-512 checksum" />
+              </label>
+              <div class="verify-result" role="status" hidden>
+                <svg class="icon" aria-hidden="true"><use /></svg>
+                <span></span>
+              </div>
+            </div>
             <div class="empty-hint">
               <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
               <strong></strong>
@@ -204,6 +255,16 @@
           </div>
           <div class="file-pane" data-side="right">
             <div class="file-card" hidden></div>
+            <div class="verify" hidden>
+              <label>
+                <span>Check against a checksum</span>
+                <input type="text" spellcheck="false" autocomplete="off" placeholder="Paste an MD5, SHA-1, SHA-256 or SHA-512 checksum" />
+              </label>
+              <div class="verify-result" role="status" hidden>
+                <svg class="icon" aria-hidden="true"><use /></svg>
+                <span></span>
+              </div>
+            </div>
             <div class="empty-hint">
               <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
               <strong></strong>
@@ -247,6 +308,21 @@
       </section>
     </template>
 
+    <div id="find-bar" class="find-bar" role="search" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+      <input id="find-input" type="text" spellcheck="false" autocomplete="off" placeholder="Find" aria-label="Find" />
+      <span id="find-count" class="find-count" aria-live="polite"></span>
+      <button id="find-prev" class="btn ghost icon-btn" title="Previous match (Shift+Enter)" aria-label="Previous match">
+        <svg class="icon" aria-hidden="true"><use href="#i-up" /></svg>
+      </button>
+      <button id="find-next" class="btn ghost icon-btn" title="Next match (Enter)" aria-label="Next match">
+        <svg class="icon" aria-hidden="true"><use href="#i-down" /></svg>
+      </button>
+      <button id="find-close" class="btn ghost icon-btn" title="Close (Esc)" aria-label="Close find">
+        <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
+      </button>
+    </div>
+
     <div id="message" class="toast" role="alert" hidden>
       <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
       <span></span>
@@ -257,6 +333,7 @@
     <script src="../table-text.js"></script>
     <script src="table-diff.js"></script>
     <script src="table-view.js"></script>
+    <script src="report.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

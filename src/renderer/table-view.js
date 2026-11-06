@@ -46,21 +46,21 @@ function createTableView(root) {
   let scrollX = 0;
   // The rows and columns in the DOM.
   let rendered = null;
+  // Find: what is looked for, the cells on show that have it as
+  // [{ position, row, column, side }], those cells again by key, and the
+  // match gone to last.
+  let query = null;
+  let matches = [];
+  let found = new Set();
+  let currentMatch = -1;
+  // More matches than this aren't worth counting one by one.
+  const MAX_MATCHES = 100000;
 
   function element(className, text) {
     const el = document.createElement('div');
     el.className = className;
     if (text !== undefined) el.textContent = text;
     return el;
-  }
-
-  // 0 → A, 25 → Z, 26 → AA
-  function columnName(index) {
-    let name = '';
-    for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) {
-      name = String.fromCharCode(65 + ((n - 1) % 26)) + name;
-    }
-    return name;
   }
 
   function measureColumns() {
@@ -94,7 +94,7 @@ function createTableView(root) {
       if (column[side] < 0) {
         cells.push(element('grid-cell filler'));
       } else {
-        const cell = element('grid-cell', columnName(column[side]));
+        const cell = element('grid-cell', TableText.columnName(column[side]));
         if (column[other] < 0) cell.classList.add('only');
         cells.push(cell);
       }
@@ -121,6 +121,12 @@ function createTableView(root) {
       const cell = element('grid-cell', text);
       if (NUMERIC.test(text)) cell.classList.add('numeric');
       if (row.cells.includes(c)) cell.classList.add('hl');
+      const key = `${row.index}:${c}:${side}`;
+      if (found.has(key)) {
+        const match = matches[currentMatch];
+        const current = match && match.row === row.index && match.column === c && match.side === side;
+        cell.classList.add(current ? 'found-current' : 'found');
+      }
       // A row without a counterpart is tinted as a whole already.
       if (diff.columns[c][other] < 0 && row[other] >= 0) cell.classList.add('only');
       if (text.length > TOOLTIP_LENGTH) cell.title = text;
@@ -133,7 +139,7 @@ function createTableView(root) {
   }
 
   function buildRow(index) {
-    const row = diff.rows[index];
+    const row = { ...diff.rows[index], index };
     const rowEl = element(`grid-row ${row.type}`);
     if (currentBlock >= 0 && blocks[currentBlock].row === index) rowEl.classList.add('current');
     rowEl.append(buildSide(row, 'left'), buildSide(row, 'right'));
@@ -195,29 +201,57 @@ function createTableView(root) {
     setScrollX(scrollX);
   }
 
+  // Looks for the query in the cells of the rows on show, both sides of a
+  // row in turn.
+  function findMatches() {
+    matches = [];
+    found = new Set();
+    currentMatch = -1;
+    if (!diff || !query) return;
+    for (let position = 0; position < display.length && matches.length < MAX_MATCHES; position++) {
+      const index = display[position];
+      const row = diff.rows[index];
+      for (const side of SIDES) {
+        if (row[side] < 0) continue;
+        const values = diff[side].rows[row[side]];
+        diff.columns.forEach((column, c) => {
+          const text = column[side] < 0 ? '' : values[column[side]];
+          if (!text || !text.toLowerCase().includes(query)) return;
+          matches.push({ position, row: index, column: c, side });
+          found.add(`${index}:${c}:${side}`);
+        });
+      }
+    }
+  }
+
   // Lists the rows to show and starts over at the top.
   function list() {
     display = [];
     diff.rows.forEach((row, index) => {
       if (!onlyDifferences || row.type !== 'equal') display.push(index);
     });
+    findMatches();
     rowsEl.style.height = `${display.length * ROW_HEIGHT + TAIL}px`;
     scroller.scrollTop = 0;
     rendered = null;
     fit();
   }
 
-  // Scrolls to the first row of a run of differences, and sideways to the
-  // first cell that differs in it.
-  function reveal(block) {
-    const position = onlyDifferences ? block.position : block.row;
+  // Scrolls the row at `position` among those on show to the middle, and
+  // sideways to `column` when there is one.
+  function revealCell(position, column) {
     scroller.scrollTop = position * ROW_HEIGHT - (scroller.clientHeight - ROW_HEIGHT) / 2;
-    const [column] = diff.rows[block.row].cells;
     if (column === undefined) return;
     const width = viewport.clientWidth;
     if (offsets[column] < scrollX || offsets[column + 1] > scrollX + width) {
       setScrollX(Math.min(offsets[column], Math.max(0, offsets[column + 1] - width + 48)));
     }
+  }
+
+  // Scrolls to the first row of a run of differences, and sideways to the
+  // first cell that differs in it.
+  function reveal(block) {
+    revealCell(onlyDifferences ? block.position : block.row, diff.rows[block.row].cells[0]);
   }
 
   // Shows one entry of TableDiff.compare() and returns its number of runs of
@@ -260,8 +294,30 @@ function createTableView(root) {
     render(true);
   }
 
+  // Marks the cells that contain `text`, whatever its case, and returns how
+  // many there are. Empty text marks none.
+  function search(text) {
+    query = text ? text.toLowerCase() : null;
+    findMatches();
+    render(true);
+    return matches.length;
+  }
+
+  // Goes to the match with this index.
+  function goToMatch(index) {
+    currentMatch = index;
+    const match = matches[index];
+    revealCell(match.position, match.column);
+    render(true);
+  }
+
+  const searchState = () => ({ index: currentMatch, count: matches.length });
+
   function clear() {
     diff = null;
+    matches = [];
+    found = new Set();
+    currentMatch = -1;
     windowEl.replaceChildren();
     for (const strip of headStrips) strip.replaceChildren();
   }
@@ -291,5 +347,5 @@ function createTableView(root) {
     { passive: false }
   );
 
-  return { show, setOnlyDifferences, goTo, clear };
+  return { show, setOnlyDifferences, goTo, clear, search, goToMatch, searchState };
 }

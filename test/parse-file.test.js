@@ -184,3 +184,38 @@ test('unsupported and binary files are rejected', async () => {
   await assert.rejects(parseFile(file('old.doc', Buffer.from('x'))), /aren't supported/);
   await assert.rejects(parseFile(file('image.bin', Buffer.from([0, 1, 2]))), /doesn't look like a text file/);
 });
+
+test('a file without bytes is read from disk', async () => {
+  const { text } = await parseFile({ name: 'self.js', filePath: __filename, lastModified: 0, bytes: null });
+  assert.match(text, /a file without bytes is read from disk/);
+  await assert.rejects(parseFile({ name: 'test', filePath: __dirname, bytes: null }), /Folders can't be compared/);
+});
+
+test('password-protected and damaged Office files get a clear message', async () => {
+  const compound = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0]);
+  await assert.rejects(parseFile(file('secret.docx', compound)), /password-protected\. Open it in Word/);
+  await assert.rejects(parseFile(file('secret.xlsx', compound)), /password-protected\. Open it in Excel/);
+  await assert.rejects(parseFile(file('broken.docx', Buffer.from('not a zip at all'))), /damaged or isn't a Word document/);
+});
+
+test('a PDF without any text says so', async () => {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = objects.map((body, i) => {
+    const offset = pdf.length;
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+    return offset;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const { text, warning } = await parseFile(file('scan.pdf', Buffer.from(pdf)));
+  assert.equal(text, '');
+  assert.match(warning, /no text to compare/);
+  await assert.rejects(parseFile(file('fake.pdf', Buffer.from('hello'))), /damaged or isn't a PDF/);
+});

@@ -1,5 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const TableText = require('./table-text');
 
 const WORKBOOKS = new Set(['.xlsx', '.xlsm', '.xlsb', '.xls', '.ods', '.fods']);
@@ -11,6 +12,12 @@ const DELIMITED = new Map([
 ]);
 const DELIMITER_NAMES = { ',': 'Comma', ';': 'Semicolon', '\t': 'Tab', '|': 'Pipe' };
 const UNSUPPORTED = new Set(['.doc', '.rtf', '.odt', '.pages', '.ppt', '.pptx']);
+
+// For files that can't be read as text at all, as opposed to ones that are
+// damaged or locked: their errors have this code.
+function unsupported(message) {
+  return Object.assign(new Error(message), { code: 'UNSUPPORTED' });
+}
 
 // Builds a details group from [label, value] pairs, dropping the ones a file
 // doesn't have. Values are strings, numbers or Dates.
@@ -74,8 +81,27 @@ async function docxProperties(buffer) {
   ]);
 }
 
+// Office files are zip archives; once a password is set, Office saves them
+// inside an older compound file instead, which starts with these bytes.
+const COMPOUND_FILE = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
+const isCompoundFile = (buffer) => buffer.subarray(0, 8).equals(COMPOUND_FILE);
+
+function passwordError(app) {
+  return new Error(`This file is password-protected. Open it in ${app}, remove the password, save it and try again.`);
+}
+
 async function parseDocx(buffer) {
-  const { value } = await require('mammoth').extractRawText({ buffer });
+  if (isCompoundFile(buffer)) throw passwordError('Word');
+  let value;
+  try {
+    ({ value } = await require('mammoth').extractRawText({ buffer }));
+  } catch (error) {
+    if (/central directory|zip/i.test(error.message)) {
+      throw new Error("This file is damaged or isn't a Word document.");
+    }
+    throw error;
+  }
   // mammoth separates paragraphs with a blank line; one paragraph per line
   // gives a much more readable comparison.
   const text = value.replace(/\n{2,}/g, '\n').trim();
@@ -84,31 +110,59 @@ async function parseDocx(buffer) {
 
 async function parsePdf(buffer) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const task = pdfjs.getDocument({ data: new Uint8Array(buffer), verbosity: 0 });
-  const doc = await task.promise;
-  const pages = [];
-  for (let n = 1; n <= doc.numPages; n++) {
-    const page = await doc.getPage(n);
-    const content = await page.getTextContent();
-    const text = content.items.map((item) => item.str + (item.hasEOL ? '\n' : '')).join('');
-    pages.push(text.trim());
+  // In Electron's utility process pdf.js takes itself to be in a web page.
+  // It then has to be told where its worker is, which it runs in-process,
+  // and to do without the browser features it would use to draw pages.
+  pdfjs.GlobalWorkerOptions.workerSrc ||= pathToFileURL(require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')).href;
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    verbosity: 0,
+    isOffscreenCanvasSupported: false,
+    isImageDecoderSupported: false,
+    disableFontFace: true,
+    useSystemFonts: false,
+  });
+  try {
+    let doc;
+    try {
+      doc = await task.promise;
+    } catch (error) {
+      if (error.name === 'PasswordException') {
+        throw new Error('This PDF is password-protected. Remove the password, save it and try again.');
+      }
+      if (error.name === 'InvalidPDFException') throw new Error("This file is damaged or isn't a PDF.");
+      throw error;
+    }
+    const pages = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      const content = await page.getTextContent();
+      const text = content.items.map((item) => item.str + (item.hasEOL ? '\n' : '')).join('');
+      pages.push(text.trim());
+    }
+    const { info } = await doc.getMetadata();
+    const date = (value) => pdfjs.PDFDateString.toDateObject(value) ?? undefined;
+    const properties = group('Document', [
+      ['Title', info.Title],
+      ['Subject', info.Subject],
+      ['Author', info.Author],
+      ['Content created', date(info.CreationDate)],
+      ['Last saved', date(info.ModDate)],
+      ['Pages', doc.numPages],
+      ['Keywords', info.Keywords],
+      ['Application', info.Creator],
+      ['PDF producer', info.Producer],
+      ['PDF version', info.PDFFormatVersion],
+    ]);
+    // Scanned pages are pictures of text, with no text to compare.
+    const warning =
+      doc.numPages > 0 && pages.every((text) => text === '')
+        ? "This PDF has no text to compare. It's probably made of scanned pages."
+        : undefined;
+    return { text: pages.join('\n\n'), properties, warning };
+  } finally {
+    await task.destroy();
   }
-  const { info } = await doc.getMetadata();
-  const date = (value) => pdfjs.PDFDateString.toDateObject(value) ?? undefined;
-  const properties = group('Document', [
-    ['Title', info.Title],
-    ['Subject', info.Subject],
-    ['Author', info.Author],
-    ['Content created', date(info.CreationDate)],
-    ['Last saved', date(info.ModDate)],
-    ['Pages', doc.numPages],
-    ['Keywords', info.Keywords],
-    ['Application', info.Creator],
-    ['PDF producer', info.Producer],
-    ['PDF version', info.PDFFormatVersion],
-  ]);
-  await task.destroy();
-  return { text: pages.join('\n\n'), properties };
 }
 
 function decodeText(buffer) {
@@ -119,7 +173,7 @@ function decodeText(buffer) {
     return { text: new TextDecoder('utf-16be').decode(buffer), encoding: 'UTF-16 BE' };
   }
   if (buffer.subarray(0, 8192).includes(0)) {
-    throw new Error(
+    throw unsupported(
       "This doesn't look like a text file. Supported: plain text, .docx, .pdf and spreadsheets (.xlsx, .xls, .ods, .csv)."
     );
   }
@@ -172,9 +226,17 @@ function isoDateFormat(format) {
 
 // Cells hold the text a spreadsheet application would show: numbers
 // formatted, formulas as their result.
-function parseWorkbook(buffer) {
+function parseWorkbook(buffer, ext) {
   const XLSX = require('xlsx');
-  const workbook = XLSX.read(buffer, { type: 'buffer', dense: true, cellNF: true, cellFormula: false, cellHTML: false });
+  // Only the old .xls format is a compound file without a password.
+  if (ext !== '.xls' && isCompoundFile(buffer)) throw passwordError('Excel');
+  let workbook;
+  try {
+    workbook = XLSX.read(buffer, { type: 'buffer', dense: true, cellNF: true, cellFormula: false, cellHTML: false });
+  } catch (error) {
+    if (/password|encrypt/i.test(error.message)) throw passwordError('Excel');
+    throw error;
+  }
   const date1904 = Boolean(workbook.Workbook?.WBProps?.date1904);
   const isoFormats = new Map();
   const cellText = (cell) => {
@@ -277,24 +339,32 @@ function parseContent(name, buffer, asTable) {
   const ext = path.extname(name).toLowerCase();
   if (ext === '.docx') return parseDocx(buffer);
   if (ext === '.pdf') return parsePdf(buffer);
-  if (WORKBOOKS.has(ext)) return parseWorkbook(buffer);
+  if (WORKBOOKS.has(ext)) return parseWorkbook(buffer, ext);
   if (DELIMITED.has(ext)) return parseDelimited(buffer, DELIMITED.get(ext));
   if (UNSUPPORTED.has(ext)) {
-    throw new Error(`${ext} files aren't supported. Save the document as .docx, .pdf or plain text first.`);
+    throw unsupported(`${ext} files aren't supported. Save the document as .docx, .pdf or plain text first.`);
   }
   return asTable ? parseDelimited(buffer) : parseText(buffer);
 }
 
-// `file` is { name, filePath, lastModified, bytes, table }. Returns the
-// file's text and its details as groups of { label, value } items;
-// spreadsheets also return their `sheets` as [{ name, rows }] with rows of
-// cell texts. With `table` set, plain text counts as a spreadsheet too.
+// Reads a whole file from disk, turning down folders.
+async function readFromDisk(filePath) {
+  if ((await fs.stat(filePath)).isDirectory()) throw new Error("Folders can't be compared, only files.");
+  return fs.readFile(filePath);
+}
+
+// `file` is { name, filePath, lastModified, bytes, table }; without `bytes`
+// the file is read from `filePath`. Returns the file's text and its details
+// as groups of { label, value } items; spreadsheets also return their
+// `sheets` as [{ name, rows }] with rows of cell texts. With `table` set,
+// plain text counts as a spreadsheet too. `warning` says when a file opened
+// but likely isn't what was expected.
 async function parseFile(file) {
-  const buffer = Buffer.from(file.bytes);
-  const { text, properties, sheets } = await parseContent(file.name, buffer, file.table);
+  const buffer = file.bytes ? Buffer.from(file.bytes) : await readFromDisk(file.filePath);
+  const { text, properties, sheets, warning } = await parseContent(file.name, buffer, file.table);
   const content = sheets ? sheetProperties(sheets) : contentProperties(text);
   const details = [await fileProperties(file, buffer.length), properties, content];
-  return { text, sheets, details: details.filter((entry) => entry.items.length > 0) };
+  return { text, sheets, warning, details: details.filter((entry) => entry.items.length > 0) };
 }
 
 module.exports = { parseFile, fileProperties, isoDateFormat };

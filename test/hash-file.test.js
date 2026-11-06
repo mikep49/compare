@@ -89,3 +89,16 @@ test('aborting gives up on a file', async () => {
   const pending = hashFile(file, { signal: job.signal, onProgress: () => job.abort() });
   await assert.rejects(pending, { name: 'AbortError' });
 });
+
+test('every common checksum is worked out, and progress knows the total', async () => {
+  const progress = [];
+  const { checksums } = await hashFile(onDisk('abc2.txt', 'abc'), { onProgress: (read, total) => progress.push([read, total]) });
+  assert.deepEqual(checksums, {
+    md5: '900150983cd24fb0d6963f7d28e17f72',
+    sha1: 'a9993e364706816aba3e25717850c26c9cd0d89d',
+    sha256: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    sha512:
+      'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f',
+  });
+  assert.deepEqual(progress, [[3, 3]]);
+});

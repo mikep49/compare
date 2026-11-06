@@ -109,5 +109,14 @@
     return sheets.map((sheet) => ({ name: sheet.name, rows: trim(sheet.rows) }));
   }
 
-  return { detectDelimiter, split, trim, toText, toSheets };
+  // The name of a column as spreadsheets show it: 0 → A, 25 → Z, 26 → AA.
+  function columnName(index) {
+    let name = '';
+    for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) {
+      name = String.fromCharCode(65 + ((n - 1) % 26)) + name;
+    }
+    return name;
+  }
+
+  return { detectDelimiter, split, trim, toText, toSheets, columnName };
 });
