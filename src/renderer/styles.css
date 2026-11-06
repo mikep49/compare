@@ -1388,8 +1388,9 @@ dd.copyable span {
 }
 
 /* Document view: each document as it looks, its pages on a desk that
-   scrolls on its own. The pages are white paper in every theme, and the
-   changes are marked on them with the CSS Custom Highlight API. */
+   scrolls on its own. The pages are white paper in every theme, unless
+   Dark pages is on, and the changes are marked on them with the CSS Custom
+   Highlight API. */
 
 .doc-view {
   /* Set by doc-view.js. */
@@ -1639,8 +1640,266 @@ dd.copyable span {
 }
 
 .doc-sync[aria-pressed='true'],
-.doc-sync[aria-pressed='true']:hover {
+.doc-sync[aria-pressed='true']:hover,
+.doc-paper[aria-pressed='true'],
+.doc-paper[aria-pressed='true']:hover {
   color: var(--accent);
+}
+
+/* Dark pages: the paper's colors turned around, keeping their hues. Word
+   files' pictures are turned back, so they look as they are; a PDF page is
+   one picture, so its photos stay turned around. The page shadow is turned
+   around with the page, into a faint light edge. */
+:root[data-paper='dark'] {
+  --paper-filter: invert(0.88) hue-rotate(180deg);
+}
+
+:root[data-paper='dark'] .doc-page {
+  filter: var(--paper-filter);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-paper='dark'] .doc-page img {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Sheet view: each spreadsheet as a spreadsheet program shows it, on the
+   desk of the document view. The cells are drawn on white paper, the row
+   numbers and column letters stay in view as the sheet scrolls, and the
+   changes are marked over the cells. */
+
+.doc-view {
+  --ss-font: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
+  --ss-gridline: #dadada;
+  --ss-head: #f3f3f3;
+  --ss-head-line: #d4d4d4;
+  --ss-head-text: #5c5c66;
+  --ss-removed-text: #c62a2f;
+  --ss-added-text: #18794e;
+  /* Marks over the cells, blended so that the text under them stays as
+     dark as it is on light paper and as light on dark paper. */
+  --ss-blend: multiply;
+  --ss-removed-row: rgba(229, 72, 77, 0.12);
+  --ss-removed-cell: rgba(229, 72, 77, 0.32);
+  --ss-added-row: rgba(48, 164, 108, 0.14);
+  --ss-added-cell: rgba(48, 164, 108, 0.36);
+}
+
+:root[data-paper='dark'] .doc-view {
+  --ss-head: #2a2a2a;
+  --ss-head-line: #3d3d3d;
+  --ss-head-text: #a3a3ad;
+  --ss-removed-text: #ff8589;
+  --ss-added-text: #5fd09a;
+  --ss-blend: screen;
+  --ss-removed-row: rgba(229, 72, 77, 0.2);
+  --ss-removed-cell: rgba(229, 72, 77, 0.5);
+  --ss-added-row: rgba(48, 164, 108, 0.2);
+  --ss-added-cell: rgba(48, 164, 108, 0.5);
+}
+
+.ss-page {
+  display: grid;
+  width: max-content;
+  background: var(--ss-head);
+  box-shadow: var(--page-shadow);
+  color: #000000;
+  font-family: var(--ss-font);
+  user-select: text;
+}
+
+:root[data-paper='dark'] .ss-page {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.ss-grid,
+.ss-marks {
+  grid-area: 2 / 2;
+  position: relative;
+}
+
+.ss-grid {
+  z-index: 0;
+  overflow: clip;
+  background: #ffffff;
+}
+
+:root[data-paper='dark'] .ss-grid {
+  filter: var(--paper-filter);
+}
+
+.ss-marks {
+  z-index: 1;
+  mix-blend-mode: var(--ss-blend);
+  pointer-events: none;
+}
+
+/* Column letters along the top and row numbers down the side. */
+.ss-cols,
+.ss-rows,
+.ss-corner {
+  position: sticky;
+  background: var(--ss-head);
+}
+
+.ss-cols {
+  grid-area: 1 / 2;
+  top: 0;
+  z-index: 3;
+}
+
+.ss-rows {
+  grid-area: 2 / 1;
+  left: 0;
+  z-index: 3;
+}
+
+.ss-corner {
+  grid-area: 1 / 1;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  box-shadow: inset -1px -1px 0 var(--ss-head-line);
+}
+
+.ss-h {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: inset -1px -1px 0 var(--ss-head-line);
+  color: var(--ss-head-text);
+  font: 11px/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ss-cols .ss-h {
+  top: 0;
+  bottom: 0;
+}
+
+.ss-rows .ss-h {
+  left: 0;
+  right: 0;
+}
+
+.doc-pane[data-side='left'] .ss-h.marked {
+  background: color-mix(in srgb, var(--removed) 16%, var(--ss-head));
+  color: var(--ss-removed-text);
+  font-weight: 600;
+}
+
+.doc-pane[data-side='right'] .ss-h.marked {
+  background: color-mix(in srgb, var(--added) 18%, var(--ss-head));
+  color: var(--ss-added-text);
+  font-weight: 600;
+}
+
+/* A cell, with the gridlines along its right and bottom edges. Its style's
+   class, from sheet-view.js, sets its font, fill and borders. */
+.ss-c {
+  position: absolute;
+  box-shadow: inset -1px -1px 0 var(--ss-gridline);
+  color: #000000;
+  font-size: 14.67px;
+}
+
+.no-grid .ss-c {
+  box-shadow: none;
+}
+
+/* Borders lie over the gridlines, those on the left and top over the
+   gridlines of the cells before. */
+.ss-c::after,
+.ss-frame {
+  position: absolute;
+  inset: -1px 0 0 -1px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ss-c.ss-merged::after {
+  content: none;
+}
+
+/* The text of a cell, above the fills of the cells it spills over. */
+.ss-t {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  padding: 1px 3px;
+  overflow: hidden;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ss-mk {
+  position: absolute;
+}
+
+.doc-pane[data-side='left'] :is(.ss-mk.row, .ss-mk.col) {
+  background: var(--ss-removed-row);
+}
+
+.doc-pane[data-side='right'] :is(.ss-mk.row, .ss-mk.col) {
+  background: var(--ss-added-row);
+}
+
+.doc-pane[data-side='left'] .ss-marks .cell {
+  background: var(--ss-removed-cell);
+}
+
+.doc-pane[data-side='right'] .ss-marks .cell {
+  background: var(--ss-added-cell);
+}
+
+.ss-marks .found {
+  background: color-mix(in srgb, var(--changed) 45%, transparent);
+}
+
+.ss-marks .found.current {
+  background: var(--changed);
+}
+
+/* Outlines, above the tints and unblended, so that they show on any fill. */
+.ss-rings {
+  grid-area: 2 / 2;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.doc-pane[data-side='left'] .ss-rings .cell {
+  box-shadow: inset 0 0 0 1.5px var(--removed);
+}
+
+.doc-pane[data-side='right'] .ss-rings .cell {
+  box-shadow: inset 0 0 0 1.5px var(--added);
+}
+
+.ss-rings .found {
+  box-shadow: inset 0 0 0 2px var(--changed);
+}
+
+/* The run of differences gone to last, or, on a side that has none of it,
+   where the other side's rows go in. */
+.ss-rings .block {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.ss-rings .block.caret {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.doc-status[data-kind='note'] :is(.spinner, .icon) {
+  display: none;
 }
 
 /* In a narrow window the navigator makes way for the zoom. */

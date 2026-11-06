@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const TableText = require('./table-text');
+const { readLooks } = require('./sheet-look');
 
 const WORKBOOKS = new Set(['.xlsx', '.xlsm', '.xlsb', '.xls', '.ods', '.fods']);
 // Extensions of delimited text, with their delimiter when it is a given.
@@ -225,14 +226,26 @@ function isoDateFormat(format) {
 }
 
 // Cells hold the text a spreadsheet application would show: numbers
-// formatted, formulas as their result.
+// formatted, formulas as their result. The workbook comes with how its
+// sheets look, for the sheet view.
 function parseWorkbook(buffer, ext) {
   const XLSX = require('xlsx');
   // Only the old .xls format is a compound file without a password.
   if (ext !== '.xls' && isCompoundFile(buffer)) throw passwordError('Excel');
+  // Excel's own formats are read for their look from their XML, which
+  // bookFiles keeps; SheetJS reads what it can of the others' look itself.
+  const excel = ext === '.xlsx' || ext === '.xlsm';
   let workbook;
   try {
-    workbook = XLSX.read(buffer, { type: 'buffer', dense: true, cellNF: true, cellFormula: false, cellHTML: false });
+    workbook = XLSX.read(buffer, {
+      type: 'buffer',
+      dense: true,
+      cellNF: true,
+      cellFormula: false,
+      cellHTML: false,
+      bookFiles: excel,
+      cellStyles: !excel,
+    });
   } catch (error) {
     if (/password|encrypt/i.test(error.message)) throw passwordError('Excel');
     throw error;
@@ -267,7 +280,14 @@ function parseWorkbook(buffer, ext) {
     ['Company', props.Company],
     ['Application', props.Application],
   ]);
-  return { text: TableText.toText(sheets), sheets, properties };
+  let looks = null;
+  try {
+    looks = readLooks(workbook, excel);
+  } catch {
+    // Without its look the workbook is still compared, just not shown as
+    // it looks.
+  }
+  return { text: TableText.toText(sheets), sheets, properties, source: looks && { kind: 'workbook', looks } };
 }
 
 function parseDelimited(buffer, knownDelimiter) {
@@ -360,7 +380,8 @@ async function readFromDisk(filePath) {
 // plain text counts as a spreadsheet too. `warning` says when a file opened
 // but likely isn't what was expected. Word files and PDFs come with their
 // `source`, { kind, bytes }, for the document view to show them as they
-// look.
+// look; workbooks with theirs, { kind: 'workbook', looks }, for the sheet
+// view, one look per sheet (see sheet-look.js).
 async function parseFile(file) {
   const buffer = file.bytes ? Buffer.from(file.bytes) : await readFromDisk(file.filePath);
   const { text, properties, sheets, warning, source } = await parseContent(file.name, buffer, file.table);

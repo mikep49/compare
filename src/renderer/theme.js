@@ -16,4 +16,6 @@ function initialTheme() {
 
 document.documentElement.classList.toggle('material', window.compareApi.hasMaterial);
 document.documentElement.classList.toggle('sidebar-collapsed', localStorage.getItem('sidebar') === 'collapsed');
+// Pages and sheets shown as they look are light or dark paper.
+document.documentElement.dataset.paper = localStorage.getItem('paper') === 'dark' ? 'dark' : 'light';
 applyTheme(initialTheme());
