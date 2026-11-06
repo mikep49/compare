@@ -297,6 +297,7 @@ function createDocView(root, { onFindChange } = {}) {
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
     zoomLabel.setAttribute('aria-pressed', String(fit));
     zoomLabel.title = fit ? 'Fitted to the width of the pages' : 'Fit the pages to the width';
+    syncButton.title = 'Scroll both documents together';
     syncButton.setAttribute('aria-pressed', String(syncOn));
   }
 

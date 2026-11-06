@@ -3,10 +3,10 @@
 A Windows desktop app for comparing two things side by side and highlighting what changed.
 
 - **Documents** – plain text, Word (`.docx`) and PDF. Changes are marked line by line and word by word, and Word files and PDFs can also be shown as they look, page by page, with the changes marked on them.
-- **Spreadsheets** – Excel (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`), OpenDocument (`.ods`) and CSV/TSV, compared cell by cell and sheet by sheet.
+- **Spreadsheets** – Excel (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`), OpenDocument (`.ods`) and CSV/TSV, compared cell by cell and sheet by sheet. Workbooks can also be shown as they look in Excel, formatting and all, with the changes marked on them.
 - **Files** – any two files, checked by their checksums to see if they're identical. A single file can be checked against a published MD5, SHA-1, SHA-256 or SHA-512 checksum, for example to verify a download.
 
-You can paste text or open files, ignore case or whitespace, and show only the differences (with a few lines of context around each change). Find text in a comparison, jump between changes, and export the result as an HTML report, a patch file (documents) or a CSV list of changed cells (spreadsheets). Light, dark and OLED-black themes are included, and the app remembers its window, zoom and settings.
+You can paste text or open files, ignore case or whitespace, and show only the differences (with a few lines of context around each change). Find text in a comparison, jump between changes, and export the result as an HTML report, a patch file (documents) or a CSV list of changed cells (spreadsheets). Light, dark and OLED-black themes are included, documents and spreadsheets shown as they look can be shown on light or dark pages, and the app remembers its window, zoom and settings.
 
 ## Opening files
 
@@ -22,6 +22,19 @@ When you compare Word files or PDFs, the **Text | Document** switch in the top b
 
 Going from change to change (F8) and Find work in both. In the Document view the two documents scroll together (the link button at the bottom right turns that off) and the pages fit the width of the window; zoom with − and + or with Ctrl+mouse wheel over the documents. A side with pasted or typed text is shown as a page of plain text. The app remembers which view you used last.
 
+## Table or sheet
+
+When you compare Excel or OpenDocument workbooks, the **Table | Sheet** switch does the same for spreadsheets:
+
+- **Table** lines up the rows of both side by side.
+- **Sheet** shows each spreadsheet as Excel does – column widths, row heights, fonts, fill colors, borders, merged cells and gridlines – with the changes marked on it: rows and cells that changed in red on the original and green on the changed one, and the same for rows and columns only one of them has.
+
+F8, Find, the sheet tabs, scrolling together and zoom work as in the Document view; zoom with − and + or with Ctrl+mouse wheel over the sheets, and click the zoom level to go back to 100%. Rows and columns hidden in a workbook stay hidden, unless something changed in them. Excel files (`.xlsx`, `.xlsm`) show all of their formatting; `.xls`, `.xlsb` and `.ods` files show their column widths, row heights and merged cells. A side with pasted cells or a CSV file is shown as a plain sheet.
+
+## Light or dark pages
+
+The moon button at the bottom right of the Document and Sheet views shows the pages dark, with their colors turned around; click it again for light pages. Pictures in Word files keep their colors. A PDF page is drawn as a single picture, so photos in PDFs come out turned around too. The app remembers the choice.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
@@ -33,7 +46,7 @@ Going from change to change (F8) and Find work in both. In the Document view the
 | Ctrl+S | Export an HTML report |
 | Ctrl+1, Ctrl+2, Ctrl+3 | Documents, Spreadsheets, Files |
 | Ctrl+B | Collapse or expand the sidebar |
-| Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset (Ctrl+mouse wheel works too, and over the Document view zooms the documents) |
+| Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset (Ctrl+mouse wheel works too, and over the Document or Sheet view zooms the documents or sheets) |
 
 ## Download
 

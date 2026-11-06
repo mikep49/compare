@@ -43,6 +43,20 @@ const KINDS = {
     paste: { left: 'Paste the original text', right: 'Paste the changed text' },
     drop: 'or drop a file here — text, Word or PDF',
     edit: 'Edit texts',
+    // The two ways to show compared documents, and the value each is
+    // remembered by under `key`.
+    views: {
+      key: 'view',
+      plain: { value: 'text', label: 'Text', icon: '#i-lines', title: 'Text: the lines of both, side by side' },
+      look: {
+        value: 'document',
+        label: 'Document',
+        icon: '#i-page',
+        title: 'Document: the files as they look, pages and all',
+        missing: 'Document: open a Word file or PDF to see it as it looks',
+        whole: 'Differences only: the Document view always shows the whole documents',
+      },
+    },
   },
   sheets: {
     label: 'Spreadsheets',
@@ -50,6 +64,18 @@ const KINDS = {
     paste: { left: 'Paste the original cells', right: 'Paste the changed cells' },
     drop: 'or drop a file here — Excel, OpenDocument or CSV',
     edit: 'Edit tables',
+    views: {
+      key: 'sheetView',
+      plain: { value: 'table', label: 'Table', icon: '#i-rows', title: 'Table: the rows of both lined up, side by side' },
+      look: {
+        value: 'sheet',
+        label: 'Sheet',
+        icon: '#i-table',
+        title: 'Sheet: the spreadsheets as they look, formatting and all',
+        missing: 'Sheet: open an Excel or OpenDocument spreadsheet to see it as it looks',
+        whole: 'Differences only: the Sheet view always shows the whole sheets',
+      },
+    },
   },
   files: {
     label: 'Files',
@@ -62,14 +88,17 @@ const KINDS = {
 const MESSAGE_ICONS = { error: '#i-alert', info: '#i-info', success: '#i-check' };
 let messageTimer;
 
-// How compared documents are shown: as lines of 'text', or as the
-// 'document' itself when there's a Word file or PDF to show. Remembered
-// from one start to the next.
-let preferredView = 'text';
-try {
-  if (localStorage.getItem('view') === 'document') preferredView = 'document';
-} catch {
-  // No storage: start with the text.
+// How compared documents and spreadsheets are shown: as lines of text or a
+// table ('plain'), or as they look ('look') when there's a Word file, PDF or
+// workbook to show. Remembered from one start to the next.
+const preferredView = { docs: 'plain', sheets: 'plain' };
+for (const kind of Object.keys(preferredView)) {
+  try {
+    const { key, look } = KINDS[kind].views;
+    if (localStorage.getItem(key) === look.value) preferredView[kind] = 'look';
+  } catch {
+    // No storage: start with the text or the table.
+  }
 }
 
 // `kind` is error, info or success.
@@ -236,14 +265,17 @@ function createWorkspace(kind) {
   const docEl = find('.doc-view');
   // Spreadsheets are shown as tables, everything else as lines of text.
   const tableView = kind === 'sheets' ? createTableView(tableEl) : null;
-  // Documents can also be shown as they look, pages and all.
-  const docView = kind === 'docs' ? createDocView(docEl, { onFindChange: () => renderFindCount() }) : null;
+  // Both can also be shown as they look: documents pages and all,
+  // spreadsheets formatting and all.
+  let lookView = null;
+  if (kind === 'docs') lookView = createDocView(docEl, { onFindChange: () => renderFindCount() });
+  else if (kind === 'sheets') lookView = createSheetView(docEl);
 
   let comparing = false;
-  // Whether the documents are on show as they look, and the comparison
-  // they were last shown for.
-  let showingDoc = false;
-  let docShownFor = null;
+  // Whether the files are on show as they look, and the comparison (texts
+  // or pair of sheets) they were last shown for.
+  let showingLook = false;
+  let lookShownFor = null;
   // The option switches the comparison on show was made with.
   let comparedWith = '';
   let comparedOptions = {};
@@ -348,8 +380,8 @@ function createWorkspace(kind) {
     renderTopbar();
   }
 
-  // Whether either side holds a Word file or PDF, which can be shown as it
-  // looks.
+  // Whether either side holds a Word file, PDF or workbook, which can be
+  // shown as it looks.
   const hasDocument = () => SIDES.some((side) => Boolean(panes[side].file?.source));
 
   // What the document view shows on each side: the Word file or PDF opened
@@ -366,19 +398,36 @@ function createWorkspace(kind) {
     return inputs;
   }
 
-  // Shows the comparison as lines of text or, when that's the view asked
-  // for and there's a document to show, as the documents themselves.
-  // Returns whether that changed.
+  // What the sheet view shows on each side of a pair of sheets: the sheet,
+  // and how it looks when it comes from a workbook.
+  function sheetInputs(diff) {
+    const inputs = {};
+    for (const side of SIDES) {
+      const sheet = diff[side];
+      const { file } = panes[side];
+      const index = sheet && file?.sheets ? file.sheets.indexOf(sheet) : -1;
+      inputs[side] = { sheet, look: index >= 0 ? (file.source?.looks?.[index] ?? null) : null };
+    }
+    return inputs;
+  }
+
+  // Shows the comparison as lines of text or a table or, when that's the
+  // view asked for and there's a file to show, as the files look. Returns
+  // whether that changed.
   function renderView() {
-    const doc = Boolean(docView) && comparing && preferredView === 'document' && hasDocument();
-    const changed = doc !== showingDoc;
-    showingDoc = doc;
-    root.classList.toggle('doc-mode', doc);
-    diffView.hidden = !comparing || Boolean(tableView) || doc;
-    docEl.hidden = !doc;
-    if (doc && docShownFor !== textResult) {
-      docShownFor = textResult;
-      docView.show(docInputs(), textResult.rows);
+    const look = Boolean(lookView) && comparing && preferredView[kind] === 'look' && hasDocument();
+    const changed = look !== showingLook;
+    showingLook = look;
+    root.classList.toggle('doc-mode', look);
+    diffView.hidden = !comparing || Boolean(tableView) || look;
+    tableEl.hidden = !comparing || !tableView || look;
+    docEl.hidden = !look;
+    // The comparison on show: the texts, or the pair of sheets.
+    const shown = tableView ? sheetDiffs[activeSheet] : textResult;
+    if (look && shown && lookShownFor !== shown) {
+      lookShownFor = shown;
+      if (tableView) lookView.show(sheetInputs(shown), shown);
+      else lookView.show(docInputs(), shown.rows);
     }
     return changed;
   }
@@ -386,7 +435,8 @@ function createWorkspace(kind) {
   // Scrolls the run of differences gone to last into view.
   function revealBlock() {
     if (currentBlock < 0) return;
-    if (showingDoc) docView.goTo(currentBlock);
+    if (showingLook) lookView.goTo(currentBlock);
+    else if (tableView) tableView.goTo(currentBlock);
     else blocks[currentBlock].scrollIntoView({ block: 'center' });
   }
 
@@ -547,6 +597,7 @@ function createWorkspace(kind) {
       showNote('', false);
     }
     showSummary(count, diff.stats, 'row', columnStats);
+    renderView();
     refreshFind();
   }
 
@@ -593,8 +644,8 @@ function createWorkspace(kind) {
     clearFind();
     renderView();
     diffView.replaceChildren();
-    if (docView) docView.clear();
-    docShownFor = null;
+    if (lookView) lookView.clear();
+    lookShownFor = null;
     if (tableView) tableView.clear();
     sheetTabs.hidden = true;
     showNote('', false);
@@ -622,14 +673,12 @@ function createWorkspace(kind) {
     const previous = currentBlock;
     if (currentBlock < 0) currentBlock = step > 0 ? 0 : blockCount - 1;
     else currentBlock = (currentBlock + step + blockCount) % blockCount;
-    if (tableView) {
-      tableView.goTo(currentBlock);
-    } else {
+    if (!tableView) {
       // The lines keep up even while the documents are on show.
       if (previous >= 0) blocks[previous].classList.remove('current');
       blocks[currentBlock].classList.add('current');
-      revealBlock();
     }
+    revealBlock();
     renderPosition();
   }
 
@@ -643,13 +692,13 @@ function createWorkspace(kind) {
     refresh();
   }
 
-  // Find. Spreadsheets are searched by their table view, which only has the
-  // rows in sight in the DOM, and documents shown as they look by the
-  // document view; the text diff is searched on the page and its matches
-  // painted with the CSS Custom Highlight API.
+  // Find. Spreadsheets are searched by their table or sheet view, which only
+  // have the rows in sight in the DOM, and documents shown as they look by
+  // the document view; the text diff is searched on the page and its
+  // matches painted with the CSS Custom Highlight API.
 
   // The view that does its own finding, if that's the one on show.
-  const finder = () => tableView ?? (showingDoc ? docView : null);
+  const finder = () => (showingLook ? lookView : tableView);
 
   // The text of each line on show, both sides in turn, searched for `query`.
   function textMatches(query) {
@@ -736,7 +785,7 @@ function createWorkspace(kind) {
     search('', false);
     // The document view, out of sight, would otherwise find it again once
     // its documents open.
-    if (docView && !showingDoc) docView.search('');
+    if (lookView && !showingLook) lookView.search('');
   }
 
   // The comparison on show as a file to save, in `format` (html, patch or
@@ -773,12 +822,12 @@ function createWorkspace(kind) {
     get comparing() {
       return comparing;
     },
-    get showingDoc() {
-      return showingDoc;
+    get showingLook() {
+      return showingLook;
     },
     hasDocument,
     // A step in (1) or out (-1).
-    zoomDocuments: (step) => docView?.zoomStep(step),
+    zoomDocuments: (step) => lookView?.zoomStep(step),
     isEmpty: (side) => panes[side].textarea.value === '' && !panes[side].loading,
     setComparing,
     setText,
@@ -948,6 +997,29 @@ const workspaces = { docs: createWorkspace('docs'), sheets: createWorkspace('she
 // The workspace on show.
 let active = workspaces.docs;
 
+// Pages and sheets shown as they look are white paper or, with Dark pages
+// on, dark. theme.js puts the choice back when the app starts.
+const paperButtons = [...document.querySelectorAll('.doc-paper')];
+
+function renderPaper() {
+  const dark = document.documentElement.dataset.paper === 'dark';
+  for (const button of paperButtons) button.setAttribute('aria-pressed', String(dark));
+}
+
+function togglePaper() {
+  const dark = document.documentElement.dataset.paper !== 'dark';
+  document.documentElement.dataset.paper = dark ? 'dark' : 'light';
+  try {
+    localStorage.setItem('paper', dark ? 'dark' : 'light');
+  } catch {
+    // Remembering it is a convenience only.
+  }
+  renderPaper();
+}
+
+for (const button of paperButtons) button.addEventListener('click', togglePaper);
+renderPaper();
+
 // The buttons of the top bar that depend on the workspace and on whether it
 // is comparing.
 function renderTopbar() {
@@ -959,30 +1031,40 @@ function renderTopbar() {
     item.hidden = !item.dataset.kinds.split(' ').includes(active.kind);
   }
 
-  // Text or document, for documents being compared. Plain text looks the
-  // same either way, so it takes a Word file or PDF to show a document.
-  const comparingDocs = active.kind === 'docs' && active.comparing;
-  const canShowDocument = comparingDocs && active.hasDocument();
-  const view = canShowDocument ? preferredView : 'text';
-  viewSwitch.hidden = !comparingDocs;
-  for (const button of viewButtons) button.setAttribute('aria-checked', String(button.dataset.view === view));
-  const documentButton = viewSwitch.querySelector('[data-view="document"]');
-  documentButton.disabled = !canShowDocument;
-  documentButton.title = canShowDocument
-    ? 'Document: the files as they look, pages and all'
-    : 'Document: open a Word file or PDF to see it as it looks';
+  // Text or document, table or sheet, for documents or spreadsheets being
+  // compared. Plain text and CSV look the same either way, so it takes a
+  // Word file, PDF or workbook to show one as it looks.
+  const { views } = KINDS[active.kind];
+  const choosing = Boolean(views) && active.comparing;
+  viewSwitch.hidden = !choosing;
+  if (choosing) {
+    const canShowLook = active.hasDocument();
+    const view = canShowLook ? preferredView[active.kind] : 'plain';
+    for (const button of viewButtons) {
+      const option = views[button.dataset.view];
+      button.setAttribute('aria-checked', String(button.dataset.view === view));
+      button.querySelector('span').textContent = option.label;
+      button.querySelector('use').setAttribute('href', option.icon);
+      button.title = option.title;
+    }
+    const lookButton = viewSwitch.querySelector('[data-view="look"]');
+    lookButton.disabled = !canShowLook;
+    if (!canShowLook) lookButton.title = views.look.missing;
+  }
 
-  // The document view always shows the documents whole.
-  const showingDoc = Boolean(active.showingDoc);
-  optOnly.disabled = showingDoc;
-  optOnlySwitch.classList.toggle('disabled', showingDoc);
-  optOnlySwitch.title = showingDoc ? 'Differences only: the Document view always shows the whole documents' : 'Differences only';
+  // The files shown as they look are always shown whole.
+  const showingLook = Boolean(active.showingLook);
+  optOnly.disabled = showingLook;
+  optOnlySwitch.classList.toggle('disabled', showingLook);
+  optOnlySwitch.title = showingLook ? views.look.whole : 'Differences only';
 }
 
 function selectView(view) {
-  preferredView = view;
+  const { views } = KINDS[active.kind];
+  if (!views) return;
+  preferredView[active.kind] = view;
   try {
-    localStorage.setItem('view', view);
+    localStorage.setItem(views.key, views[view].value);
   } catch {
     // Remembering the view is a convenience only.
   }
