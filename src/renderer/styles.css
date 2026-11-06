@@ -41,6 +41,8 @@
   --scroll-thumb-hover: rgba(0, 0, 0, 0.36);
   --sheet-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.12);
+  --desk: #e6e6ea;
+  --page-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 :root[data-theme='dark'] {
@@ -73,6 +75,8 @@
   --scroll-thumb-hover: rgba(255, 255, 255, 0.36);
   --sheet-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.45);
+  --desk: #1b1b1b;
+  --page-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 
 :root[data-theme='oled'] {
@@ -106,6 +110,8 @@
   --scroll-thumb-hover: rgba(255, 255, 255, 0.36);
   --sheet-shadow: none;
   --shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 32px rgba(0, 0, 0, 0.8);
+  --desk: #000000;
+  --page-shadow: none;
 }
 
 * {
@@ -533,13 +539,46 @@ textarea {
   height: 14px;
 }
 
-/* Too little room in the top bar for the names of the themes. */
+.segmented button:disabled {
+  opacity: 0.4;
+}
+
+.segmented button:disabled:hover {
+  color: var(--muted);
+}
+
+/* Text or document, while documents are being compared. */
+#view-switch {
+  margin-left: 6px;
+}
+
+/* A switch that doesn't apply to the view on show. */
+.switch.disabled {
+  opacity: 0.45;
+}
+
+.switch.disabled:hover {
+  color: var(--muted);
+}
+
+/* Too little room in the top bar for the names of the themes, and then for
+   those of the views. */
 @container topbar (max-width: 900px) {
-  .segmented span {
+  #theme-switch span {
     display: none;
   }
 
-  .segmented button {
+  #theme-switch button {
+    padding: 0 8px;
+  }
+}
+
+@container topbar (max-width: 720px) {
+  #view-switch span {
+    display: none;
+  }
+
+  #view-switch button {
     padding: 0 8px;
   }
 }
@@ -569,8 +608,8 @@ textarea {
 }
 
 /* Keeps the centre divider in line with the diff rows, which lose the
-   scrollbar's width. */
-.sheet.comparing .pane-heads {
+   scrollbar's width. The documents each have a scrollbar of their own. */
+.sheet.comparing:not(.doc-mode) .pane-heads {
   padding-right: var(--scrollbar);
 }
 
@@ -687,6 +726,7 @@ textarea {
   position: relative;
   display: flex;
   flex-direction: column;
+  container: sheet-body / inline-size;
 }
 
 .sheet.drop-left::after,
@@ -1345,6 +1385,269 @@ dd.copyable span {
 
 .grid-bar > div {
   height: 1px;
+}
+
+/* Document view: each document as it looks, its pages on a desk that
+   scrolls on its own. The pages are white paper in every theme, and the
+   changes are marked on them with the CSS Custom Highlight API. */
+
+.doc-view {
+  /* Set by doc-view.js. */
+  --doc-zoom: 1;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--desk);
+}
+
+.doc-pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.doc-pane:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.doc-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+/* At least as wide as the pane, wider when the pages are; the space at the
+   bottom keeps the navigator off the last page. */
+.doc-content {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 72px;
+}
+
+/* The padding must match PAGE_GAP in doc-view.js. */
+.doc-pages {
+  zoom: var(--doc-zoom);
+  padding: 16px;
+}
+
+.doc-doc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.doc-page {
+  flex: none;
+  position: relative;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: var(--page-shadow);
+  user-select: text;
+}
+
+.doc-text-page {
+  width: 816px;
+  min-height: 1056px;
+  padding: 72px;
+  color: #18181b;
+  font: 13px/1.6 var(--font-mono);
+  font-variant-ligatures: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A PDF page: drawn on a canvas, its text in pdf.js's text layer on top,
+   where it can be selected and marked. --total-scale-factor is the CSS
+   pixels per PDF point that doc-sources.js lays the text out for. */
+.doc-pdf-page {
+  --total-scale-factor: calc(96 / 72);
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  overflow: hidden;
+}
+
+.doc-pdf-page canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* From pdf.js's pdf_viewer.css, which the text layer is made for. */
+.textLayer {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 0;
+}
+
+.textLayer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}
+
+.textLayer ::selection {
+  background: rgba(66, 99, 235, 0.3);
+  color: transparent;
+}
+
+.textLayer br::selection {
+  background: transparent;
+}
+
+/* On white paper whatever the theme. */
+::highlight(doc-removed) {
+  background-color: rgba(229, 72, 77, 0.3);
+}
+
+::highlight(doc-added) {
+  background-color: rgba(48, 164, 108, 0.34);
+}
+
+/* The run of differences gone to last, a shade deeper. */
+.doc-pane[data-side='left'] ::highlight(doc-current) {
+  background-color: rgba(229, 72, 77, 0.32);
+}
+
+.doc-pane[data-side='right'] ::highlight(doc-current) {
+  background-color: rgba(48, 164, 108, 0.36);
+}
+
+/* The text of a PDF page is drawn on its canvas, under the text layer:
+   marks on it must let the text show through, and the text layer's copy of
+   it stays out of sight. */
+.textLayer ::highlight(find) {
+  background-color: color-mix(in srgb, var(--changed) 30%, transparent);
+}
+
+.textLayer ::highlight(find-current) {
+  background-color: color-mix(in srgb, var(--changed) 60%, transparent);
+  color: transparent;
+}
+
+/* Beside the run of differences gone to last, a bar in the page margin; a
+   caret marks where text the other side has goes in. */
+.doc-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.doc-mark {
+  position: absolute;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.doc-mark.caret {
+  width: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Shown over a side while its document opens, or if it can't be shown. */
+.doc-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 32px;
+  background: color-mix(in srgb, var(--desk) 85%, transparent);
+  color: var(--muted);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.doc-status .icon {
+  display: none;
+  color: var(--removed);
+}
+
+.doc-status[data-kind='error'] .icon {
+  display: block;
+}
+
+.doc-status[data-kind='error'] .spinner {
+  display: none;
+}
+
+/* Zoom and scrolling together, floating at the bottom right. */
+.doc-tools {
+  position: absolute;
+  right: calc(var(--scrollbar) + 14px);
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 42px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--raised) 82%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px) saturate(1.6);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-tools .btn {
+  border-radius: 999px;
+}
+
+.doc-tools .navigator-divider {
+  margin: 0 4px;
+}
+
+.doc-zoom-level.btn {
+  min-width: 58px;
+  padding: 0 8px;
+  justify-content: center;
+}
+
+.doc-sync[aria-pressed='true'],
+.doc-sync[aria-pressed='true']:hover {
+  color: var(--accent);
+}
+
+/* In a narrow window the navigator makes way for the zoom. */
+@container sheet-body (max-width: 1100px) {
+  .doc-mode .navigator {
+    left: calc(50% - 110px);
+  }
 }
 
 /* Navigator: floating summary and previous/next controls */

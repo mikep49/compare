@@ -55,8 +55,11 @@ test('docx details include the document properties', async () => {
   );
   const bytes = await zip.generateAsync({ type: 'nodebuffer' });
 
-  const { text, details } = await parseFile(file('terms.docx', bytes));
+  const { text, details, source } = await parseFile(file('terms.docx', bytes));
   assert.equal(text, 'First paragraph\nSecond');
+  // The file itself comes along, for the document view to show it.
+  assert.equal(source.kind, 'docx');
+  assert.ok(Buffer.from(source.bytes).equals(bytes));
   assert.deepEqual(items(details, 'Document'), {
     Title: 'Terms & Conditions',
     Author: 'Ada',
@@ -214,8 +217,10 @@ test('a PDF without any text says so', async () => {
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-  const { text, warning } = await parseFile(file('scan.pdf', Buffer.from(pdf)));
+  const { text, warning, source } = await parseFile(file('scan.pdf', Buffer.from(pdf)));
   assert.equal(text, '');
   assert.match(warning, /no text to compare/);
+  assert.equal(source.kind, 'pdf');
+  assert.equal(source.bytes.length, pdf.length);
   await assert.rejects(parseFile(file('fake.pdf', Buffer.from('hello'))), /damaged or isn't a PDF/);
 });

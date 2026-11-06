@@ -152,9 +152,10 @@ function createWindow() {
     rememberWindow(true);
   });
 
-  // Zoom with Ctrl and the mouse wheel; the keyboard shortcuts come from the
-  // page as 'zoom' messages.
-  win.webContents.on('zoom-changed', (_event, direction) => zoom(direction));
+  // Zooming with Ctrl and the mouse wheel is up to the page, as over
+  // documents shown as they look it zooms them instead: like the keyboard
+  // shortcuts it comes as 'zoom' messages. The 'zoom-changed' event can't
+  // tell where the wheel was, and comes before the page has seen it.
 
   // Dropping a file outside a drop target must not replace the app page.
   win.webContents.on('will-navigate', (event) => event.preventDefault());

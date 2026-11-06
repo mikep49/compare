@@ -2,7 +2,7 @@
 
 A Windows desktop app for comparing two things side by side and highlighting what changed.
 
-- **Documents** – plain text, Word (`.docx`) and PDF. Changes are marked line by line and word by word.
+- **Documents** – plain text, Word (`.docx`) and PDF. Changes are marked line by line and word by word, and Word files and PDFs can also be shown as they look, page by page, with the changes marked on them.
 - **Spreadsheets** – Excel (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`), OpenDocument (`.ods`) and CSV/TSV, compared cell by cell and sheet by sheet.
 - **Files** – any two files, checked by their checksums to see if they're identical. A single file can be checked against a published MD5, SHA-1, SHA-256 or SHA-512 checksum, for example to verify a download.
 
@@ -12,6 +12,15 @@ You can paste text or open files, ignore case or whitespace, and show only the d
 
 - Drop files onto either side, or use **Open file**. Dropping two files at once fills both sides.
 - From Explorer: select one or two files and choose **Send to → Compare** (added by the installer). You can also drop files onto the app's icon, or run `Compare.exe original.docx changed.docx`. Files that aren't documents or spreadsheets are compared by checksum.
+
+## Text or document
+
+When you compare Word files or PDFs, the **Text | Document** switch in the top bar changes how they're shown:
+
+- **Text** shows the lines of both side by side.
+- **Document** shows the files themselves, pages and all, with the same changes marked on them: removed and changed words in red on the original, added and changed words in green on the changed one.
+
+Going from change to change (F8) and Find work in both. In the Document view the two documents scroll together (the link button at the bottom right turns that off) and the pages fit the width of the window; zoom with − and + or with Ctrl+mouse wheel over the documents. A side with pasted or typed text is shown as a page of plain text. The app remembers which view you used last.
 
 ## Keyboard shortcuts
 
@@ -24,7 +33,7 @@ You can paste text or open files, ignore case or whitespace, and show only the d
 | Ctrl+S | Export an HTML report |
 | Ctrl+1, Ctrl+2, Ctrl+3 | Documents, Spreadsheets, Files |
 | Ctrl+B | Collapse or expand the sidebar |
-| Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset (Ctrl+mouse wheel works too) |
+| Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset (Ctrl+mouse wheel works too, and over the Document view zooms the documents) |
 
 ## Download
 

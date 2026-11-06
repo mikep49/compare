@@ -13,6 +13,9 @@ const messageEl = $('#message');
 const optCase = $('#opt-case');
 const optSpace = $('#opt-space');
 const optOnly = $('#opt-only');
+const optOnlySwitch = $('#opt-only-switch');
+const viewSwitch = $('#view-switch');
+const viewButtons = [...viewSwitch.querySelectorAll('button')];
 const themeButtons = [...document.querySelectorAll('#theme-switch button')];
 const sidebarItems = [...document.querySelectorAll('.sidebar-item')];
 const sidebarToggle = $('#sidebar-toggle');
@@ -58,6 +61,16 @@ const KINDS = {
 
 const MESSAGE_ICONS = { error: '#i-alert', info: '#i-info', success: '#i-check' };
 let messageTimer;
+
+// How compared documents are shown: as lines of 'text', or as the
+// 'document' itself when there's a Word file or PDF to show. Remembered
+// from one start to the next.
+let preferredView = 'text';
+try {
+  if (localStorage.getItem('view') === 'document') preferredView = 'document';
+} catch {
+  // No storage: start with the text.
+}
 
 // `kind` is error, info or success.
 function showMessage(text, kind = 'error', duration = 6000) {
@@ -220,10 +233,17 @@ function createWorkspace(kind) {
   const navigatorEl = find('.navigator');
   const positionEl = find('.position');
   const statsEl = find('.stats');
+  const docEl = find('.doc-view');
   // Spreadsheets are shown as tables, everything else as lines of text.
   const tableView = kind === 'sheets' ? createTableView(tableEl) : null;
+  // Documents can also be shown as they look, pages and all.
+  const docView = kind === 'docs' ? createDocView(docEl, { onFindChange: () => renderFindCount() }) : null;
 
   let comparing = false;
+  // Whether the documents are on show as they look, and the comparison
+  // they were last shown for.
+  let showingDoc = false;
+  let docShownFor = null;
   // The option switches the comparison on show was made with.
   let comparedWith = '';
   let comparedOptions = {};
@@ -256,8 +276,9 @@ function createWorkspace(kind) {
       nameEl: head.querySelector('.pane-name'),
       infoBtn: head.querySelector('.info-btn'),
       detailsEl: head.querySelector('.details'),
-      // { name, details, sheets } while the text is an unedited loaded file;
-      // only spreadsheets have sheets.
+      // { name, details, sheets, source } while the text is an unedited
+      // loaded file; only spreadsheets have sheets, and only Word files and
+      // PDFs a source.
       file: null,
       // The file being opened, by the number loadFile() gave it.
       loading: 0,
@@ -323,6 +344,50 @@ function createWorkspace(kind) {
     setFile(side, file);
     alignColumns(side);
     refresh();
+    // A Word file or PDF may have come or gone, and with it the document view.
+    renderTopbar();
+  }
+
+  // Whether either side holds a Word file or PDF, which can be shown as it
+  // looks.
+  const hasDocument = () => SIDES.some((side) => Boolean(panes[side].file?.source));
+
+  // What the document view shows on each side: the Word file or PDF opened
+  // there, or else the text, on a page of its own.
+  function docInputs() {
+    const inputs = {};
+    for (const side of SIDES) {
+      const { file, textarea } = panes[side];
+      const text = textarea.value;
+      inputs[side] = file?.source
+        ? { key: file, name: file.name, kind: file.source.kind, bytes: file.source.bytes, text }
+        : { key: text, name: file?.name ?? '', text };
+    }
+    return inputs;
+  }
+
+  // Shows the comparison as lines of text or, when that's the view asked
+  // for and there's a document to show, as the documents themselves.
+  // Returns whether that changed.
+  function renderView() {
+    const doc = Boolean(docView) && comparing && preferredView === 'document' && hasDocument();
+    const changed = doc !== showingDoc;
+    showingDoc = doc;
+    root.classList.toggle('doc-mode', doc);
+    diffView.hidden = !comparing || Boolean(tableView) || doc;
+    docEl.hidden = !doc;
+    if (doc && docShownFor !== textResult) {
+      docShownFor = textResult;
+      docView.show(docInputs(), textResult.rows);
+    }
+    return changed;
+  }
+
+  // Scrolls the run of differences gone to last into view.
+  function revealBlock() {
+    if (currentBlock < 0) return;
+    if (showingDoc) docView.goTo(currentBlock);
+    else blocks[currentBlock].scrollIntoView({ block: 'center' });
   }
 
   // `stats` counts the changed, removed and added lines or rows (`unit`);
@@ -511,6 +576,7 @@ function createWorkspace(kind) {
       compareSheets(options, keepSheet);
     } else {
       compareTexts(options);
+      renderView();
       refreshFind();
     }
   }
@@ -519,14 +585,16 @@ function createWorkspace(kind) {
     comparing = value;
     root.classList.toggle('comparing', comparing);
     editView.hidden = comparing;
-    diffView.hidden = !comparing || Boolean(tableView);
     tableEl.hidden = !comparing || !tableView;
     if (comparing) {
       runCompare();
       return;
     }
     clearFind();
+    renderView();
     diffView.replaceChildren();
+    if (docView) docView.clear();
+    docShownFor = null;
     if (tableView) tableView.clear();
     sheetTabs.hidden = true;
     showNote('', false);
@@ -543,6 +611,8 @@ function createWorkspace(kind) {
     diffView.classList.toggle('only-diff', optOnly.checked);
     if (comparing && stale) runCompare();
     else if (comparing && comparedWith !== optionsKey()) runCompare(true);
+    // The view asked for may have changed: what was gone to stays in view.
+    else if (renderView()) revealBlock();
     if (tableView) tableView.setOnlyDifferences(optOnly.checked);
     refreshFind();
   }
@@ -555,9 +625,10 @@ function createWorkspace(kind) {
     if (tableView) {
       tableView.goTo(currentBlock);
     } else {
+      // The lines keep up even while the documents are on show.
       if (previous >= 0) blocks[previous].classList.remove('current');
       blocks[currentBlock].classList.add('current');
-      blocks[currentBlock].scrollIntoView({ block: 'center' });
+      revealBlock();
     }
     renderPosition();
   }
@@ -573,8 +644,12 @@ function createWorkspace(kind) {
   }
 
   // Find. Spreadsheets are searched by their table view, which only has the
-  // rows in sight in the DOM; the text diff is searched on the page and its
-  // matches painted with the CSS Custom Highlight API.
+  // rows in sight in the DOM, and documents shown as they look by the
+  // document view; the text diff is searched on the page and its matches
+  // painted with the CSS Custom Highlight API.
+
+  // The view that does its own finding, if that's the one on show.
+  const finder = () => tableView ?? (showingDoc ? docView : null);
 
   // The text of each line on show, both sides in turn, searched for `query`.
   function textMatches(query) {
@@ -621,9 +696,10 @@ function createWorkspace(kind) {
   // Looks for `query`, whatever its case. With `go`, goes to the first match.
   function search(query, go = true) {
     findQuery = query;
-    if (tableView) {
-      const count = tableView.search(query);
-      if (go && count > 0) tableView.goToMatch(0);
+    const view = finder();
+    if (view) {
+      const count = view.search(query);
+      if (go && count > 0) view.goToMatch(0);
       return;
     }
     findRanges = query ? textMatches(query) : [];
@@ -633,10 +709,11 @@ function createWorkspace(kind) {
   }
 
   function findStep(step) {
-    if (tableView) {
-      const { index, count } = tableView.searchState();
+    const view = finder();
+    if (view) {
+      const { index, count } = view.searchState();
       if (count === 0) return;
-      tableView.goToMatch(index < 0 ? (step > 0 ? 0 : count - 1) : (index + step + count) % count);
+      view.goToMatch(index < 0 ? (step > 0 ? 0 : count - 1) : (index + step + count) % count);
       return;
     }
     const count = findRanges.length;
@@ -646,7 +723,7 @@ function createWorkspace(kind) {
     findRanges[findIndex].startContainer.parentElement.closest('.row').scrollIntoView({ block: 'center' });
   }
 
-  const findState = () => (tableView ? tableView.searchState() : { index: findIndex, count: findRanges.length });
+  const findState = () => finder()?.searchState() ?? { index: findIndex, count: findRanges.length };
 
   // Finds again after the view changed, without moving.
   function refreshFind() {
@@ -657,6 +734,9 @@ function createWorkspace(kind) {
 
   function clearFind() {
     search('', false);
+    // The document view, out of sight, would otherwise find it again once
+    // its documents open.
+    if (docView && !showingDoc) docView.search('');
   }
 
   // The comparison on show as a file to save, in `format` (html, patch or
@@ -693,6 +773,12 @@ function createWorkspace(kind) {
     get comparing() {
       return comparing;
     },
+    get showingDoc() {
+      return showingDoc;
+    },
+    hasDocument,
+    // A step in (1) or out (-1).
+    zoomDocuments: (step) => docView?.zoomStep(step),
     isEmpty: (side) => panes[side].textarea.value === '' && !panes[side].loading,
     setComparing,
     setText,
@@ -872,6 +958,40 @@ function renderTopbar() {
   for (const item of exportMenu.querySelectorAll('button')) {
     item.hidden = !item.dataset.kinds.split(' ').includes(active.kind);
   }
+
+  // Text or document, for documents being compared. Plain text looks the
+  // same either way, so it takes a Word file or PDF to show a document.
+  const comparingDocs = active.kind === 'docs' && active.comparing;
+  const canShowDocument = comparingDocs && active.hasDocument();
+  const view = canShowDocument ? preferredView : 'text';
+  viewSwitch.hidden = !comparingDocs;
+  for (const button of viewButtons) button.setAttribute('aria-checked', String(button.dataset.view === view));
+  const documentButton = viewSwitch.querySelector('[data-view="document"]');
+  documentButton.disabled = !canShowDocument;
+  documentButton.title = canShowDocument
+    ? 'Document: the files as they look, pages and all'
+    : 'Document: open a Word file or PDF to see it as it looks';
+
+  // The document view always shows the documents whole.
+  const showingDoc = Boolean(active.showingDoc);
+  optOnly.disabled = showingDoc;
+  optOnlySwitch.classList.toggle('disabled', showingDoc);
+  optOnlySwitch.title = showingDoc ? 'Differences only: the Document view always shows the whole documents' : 'Differences only';
+}
+
+function selectView(view) {
+  preferredView = view;
+  try {
+    localStorage.setItem('view', view);
+  } catch {
+    // Remembering the view is a convenience only.
+  }
+  active.sync();
+  renderTopbar();
+}
+
+for (const button of viewButtons) {
+  button.addEventListener('click', () => selectView(button.dataset.view));
 }
 
 function activate(kind) {
@@ -940,7 +1060,8 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
     return;
   }
   const kind = result.sheets ? 'sheets' : 'docs';
-  workspaces[kind].setText(side, result.text, { name: file.name, details: result.details, sheets: result.sheets });
+  const opened = { name: file.name, details: result.details, sheets: result.sheets, source: result.source };
+  workspaces[kind].setText(side, result.text, opened);
   if (kind !== active.kind) activate(kind);
   if (result.warning) showMessage(`${file.name}: ${result.warning}`, 'info');
 }
@@ -1180,6 +1301,26 @@ window.addEventListener('drop', (event) => {
 });
 
 window.compareApi.onZoom((factor) => showMessage(`Zoom ${Math.round(factor * 100)}% · Ctrl+0 resets`, 'info', 1800));
+
+// Ctrl and the mouse wheel zoom the window a step per notch or, over
+// documents shown as they look, the documents. Wheels report how far they
+// turned in pixels, lines or pages.
+const WHEEL_NOTCH = 100;
+const WHEEL_UNITS = [1, 40, 800];
+let wheelZoom = 0;
+window.addEventListener(
+  'wheel',
+  (event) => {
+    if (!event.ctrlKey) return;
+    wheelZoom += event.deltaY * (WHEEL_UNITS[event.deltaMode] ?? 1);
+    if (Math.abs(wheelZoom) < WHEEL_NOTCH / 2) return;
+    const step = wheelZoom < 0 ? 1 : -1;
+    wheelZoom = 0;
+    if (event.target.closest?.('.doc-view')) active.zoomDocuments?.(step);
+    else window.compareApi.zoom(step > 0 ? 'in' : 'out');
+  },
+  { passive: true }
+);
 window.compareApi.onOpenPaths(openPaths);
 
 let savedWorkspace = null;
