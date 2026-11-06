@@ -10,6 +10,12 @@
   // Below this share of common words, two lines are treated as unrelated and
   // highlighted whole instead of word by word.
   const MIN_SIMILARITY = 0.3;
+  // Texts with next to nothing in common can take very long to line up; past
+  // this many milliseconds their lines are compared by position instead.
+  const DIFF_TIMEOUT = 3000;
+  // The same for the words of a single, very long line, which is then
+  // highlighted whole.
+  const WORD_TIMEOUT = 200;
 
   const TOKEN_RE = /\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
 
@@ -27,14 +33,39 @@
     return key;
   }
 
+  // Diff parts that pair the items of two key arrays by position: equal keys
+  // stay equal, the others count as removed and added.
+  function partsInOrder(leftKeys, rightKeys) {
+    const parts = [];
+    const push = (kind, count) => {
+      const last = parts[parts.length - 1];
+      if (last && last.kind === kind) last.count += count;
+      else parts.push({ kind, count, removed: kind === 'removed', added: kind === 'added' });
+    };
+    const common = Math.min(leftKeys.length, rightKeys.length);
+    for (let i = 0; i < common; i++) {
+      if (leftKeys[i] === rightKeys[i]) {
+        push('equal', 1);
+      } else {
+        push('removed', 1);
+        push('added', 1);
+      }
+    }
+    if (leftKeys.length > common) push('removed', leftKeys.length - common);
+    if (rightKeys.length > common) push('added', rightKeys.length - common);
+    return parts;
+  }
+
   // Runs a diff over two key arrays and returns, per side, which indexes have
-  // no counterpart on the other side.
+  // no counterpart on the other side, or null when that took too long.
   function changedFlags(leftKeys, rightKeys) {
+    const parts = Diff.diffArrays(leftKeys, rightKeys, { timeout: WORD_TIMEOUT });
+    if (!parts) return null;
     const left = new Array(leftKeys.length).fill(false);
     const right = new Array(rightKeys.length).fill(false);
     let l = 0;
     let r = 0;
-    for (const part of Diff.diffArrays(leftKeys, rightKeys)) {
+    for (const part of parts) {
       if (part.removed) {
         for (let i = 0; i < part.count; i++) left[l++] = true;
       } else if (part.added) {
@@ -78,6 +109,7 @@
     });
 
     const flags = changedFlags(sides[0].keys, sides[1].keys);
+    if (!flags) return { left: whole(leftLine), right: whole(rightLine) };
     const words = (side) => side.keys.filter((key) => !/^\s/.test(key)).length;
     const commonWords = (side, sideFlags) =>
       side.keys.filter((key, i) => !sideFlags[i] && !/^\s/.test(key)).length;
@@ -103,10 +135,10 @@
     const opts = { ignoreCase: false, ignoreWhitespace: false, ...options };
     const leftLines = splitLines(leftText);
     const rightLines = splitLines(rightText);
-    const parts = Diff.diffArrays(
-      leftLines.map((line) => lineKey(line, opts)),
-      rightLines.map((line) => lineKey(line, opts))
-    );
+    const leftKeys = leftLines.map((line) => lineKey(line, opts));
+    const rightKeys = rightLines.map((line) => lineKey(line, opts));
+    const parts =
+      Diff.diffArrays(leftKeys, rightKeys, { timeout: DIFF_TIMEOUT }) || partsInOrder(leftKeys, rightKeys);
 
     const rows = [];
     const stats = { changed: 0, removed: 0, added: 0 };
@@ -167,5 +199,22 @@
     return { rows, stats };
   }
 
-  return { compare };
+  // Which rows "Differences only" hides: the equal ones more than `context`
+  // rows away from any difference. Works for the rows of TableDiff too.
+  function hiddenRows(rows, context) {
+    const hidden = rows.map((row) => row.type === 'equal');
+    let last = -Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].type !== 'equal') last = i;
+      else if (i - last <= context) hidden[i] = false;
+    }
+    last = Infinity;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].type !== 'equal') last = i;
+      else if (last - i <= context) hidden[i] = false;
+    }
+    return hidden;
+  }
+
+  return { compare, hiddenRows };
 });

@@ -64,3 +64,17 @@ test('empty inputs', () => {
   assert.deepEqual(compare('', '').rows, []);
   assert.deepEqual(compare('', 'x').stats, { changed: 0, removed: 0, added: 1 });
 });
+
+test('large texts with nothing in common are compared line by line in good time', () => {
+  const lines = (prefix, count) => Array.from({ length: count }, (_, i) => `${prefix} ${i} ${(i * 7919) % 10007}`);
+  const left = lines('left', 30000);
+  const right = lines('right', 30001);
+  // A few lines the two have in common, at the same place.
+  for (const i of [0, 15000, 29999]) right[i] = left[i];
+  const started = Date.now();
+  const { rows, stats } = compare(left.join('\n'), right.join('\n'));
+  assert.ok(Date.now() - started < 15000);
+  assert.equal(rows.length, 30001);
+  assert.deepEqual(stats, { changed: 29997, removed: 0, added: 1 });
+  assert.equal(rows[15000].type, 'equal');
+});

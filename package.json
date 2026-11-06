@@ -1,6 +1,6 @@
 {
   "name": "compare",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Side-by-side comparison of two texts or documents",
   "author": "Klaus",
   "private": true,
@@ -23,7 +23,8 @@
       "icon": "src/icon.png"
     },
     "nsis": {
-      "artifactName": "Compare-Setup-${version}.${ext}"
+      "artifactName": "Compare-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
     },
     "portable": {
       "artifactName": "Compare-Portable-${version}.${ext}"
@@ -38,7 +39,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
-    "electron": "^44.7.0",
+    "electron": "^44.10.2",
     "electron-builder": "^26.15.3"
   }
 }
