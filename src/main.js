@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { hashFile } = require('./hash-file');
+const { startUpdater } = require('./updater');
 
 // Must match --topbar-height in styles.css.
 const TITLE_BAR_HEIGHT = 48;
@@ -278,6 +279,7 @@ if (!app.requestSingleInstanceLock()) {
     settings = loadSettings();
     Menu.setApplicationMenu(null);
     createWindow();
+    startUpdater();
   });
 
   app.on('window-all-closed', () => app.quit());

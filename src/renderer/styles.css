@@ -389,6 +389,74 @@ textarea {
   height: 18px;
 }
 
+/* The update button, at the bottom of the sidebar. Laid out like the
+   sidebar items, so collapsed it keeps just its icon. While downloading it
+   fills up from the left as far as the download has got. */
+.update-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  margin: auto 0 10px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: linear-gradient(to right, var(--accent-soft) var(--progress, 100%), var(--control) 0) no-repeat;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  -webkit-app-region: no-drag;
+  animation: fade-in 0.3s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.update-btn .icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.6;
+}
+
+.update-btn span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.12s ease;
+}
+
+.sidebar-collapsed .update-btn span {
+  opacity: 0;
+}
+
+.update-btn:hover {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.update-btn[data-status='downloading'],
+.update-btn[data-status='restarting'] {
+  color: var(--text);
+  pointer-events: none;
+}
+
+.update-btn[data-status='downloading'] {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 40%, transparent) var(--progress),
+    var(--control) 0
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar {
     transition: none;

@@ -1411,6 +1411,43 @@ window.addEventListener(
 );
 window.compareApi.onOpenPaths(openPaths);
 
+// The update button at the bottom of the sidebar, shown once a newer version
+// is out. See updater.js.
+const updateBtn = $('#update-btn');
+let updateStatus = 'none';
+
+function showUpdate({ status, version, percent = 0, manual }) {
+  if (status === 'ready' && updateStatus === 'downloading') {
+    showMessage(`Compare ${version} is downloaded. Restart to update now, or it updates when you close it.`, 'success');
+  }
+  updateStatus = status;
+  const looks = {
+    available: [
+      '#i-update',
+      `Update to ${version}`,
+      manual ? `Compare ${version} is out. Opens the download page.` : `Compare ${version} is out. Downloads it.`,
+    ],
+    downloading: ['#i-update', `Downloading ${percent}%`, `Downloading Compare ${version}`],
+    ready: ['#i-restart', 'Restart to update', `Restarts Compare on version ${version}`],
+    restarting: ['#i-restart', 'Restarting…', `Restarting Compare on version ${version}`],
+  }[status];
+  updateBtn.hidden = !looks;
+  if (!looks) return;
+  const [icon, label, title] = looks;
+  updateBtn.dataset.status = status;
+  updateBtn.querySelector('use').setAttribute('href', icon);
+  updateBtn.querySelector('span').textContent = label;
+  updateBtn.title = title;
+  updateBtn.style.setProperty('--progress', status === 'downloading' ? `${percent}%` : '100%');
+}
+
+updateBtn.addEventListener('click', async () => {
+  const result = await window.compareApi.update();
+  if (!result.ok) showMessage(result.error);
+});
+window.compareApi.onUpdateState(showUpdate);
+window.compareApi.getUpdateState().then(showUpdate);
+
 let savedWorkspace = null;
 try {
   savedWorkspace = localStorage.getItem('workspace');

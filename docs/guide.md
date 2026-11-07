@@ -14,6 +14,7 @@ Compare shows two versions of something side by side and marks what changed. Thi
 - [Exporting](#exporting)
 - [Themes and dark pages](#themes-and-dark-pages)
 - [Keyboard shortcuts](#keyboard-shortcuts)
+- [Updates](#updates)
 - [Troubleshooting](#troubleshooting)
 
 **How it works**
@@ -24,6 +25,7 @@ Compare shows two versions of something side by side and marks what changed. Thi
 - [Showing documents as they look](#showing-documents-as-they-look)
 - [Comparing spreadsheets](#comparing-spreadsheets)
 - [Checksums](#checksums)
+- [Updating itself](#updating-itself)
 - [Privacy and settings](#privacy-and-settings)
 - [Project layout](#project-layout)
 - [Building, testing and releasing](#building-testing-and-releasing)
@@ -170,6 +172,17 @@ Compare also remembers its window size and position, its zoom, and which workspa
 | Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset |
 | Ctrl+mouse wheel | Zoom (the pages, over the Document and Sheet views) |
 
+## Updates
+
+When a new version of Compare is out, an **Update to x.x.x** button shows at the bottom left of the window. Compare checks for one when it starts, and every six hours while it's open.
+
+1. **Click Update.** The new version downloads in the background, and you can go on working. The button shows how far the download has got.
+2. **Click Restart to update.** Compare closes and opens again on the new version. If you'd rather not restart now, just carry on: the update goes in when you close Compare.
+
+This works the same for the installed app and the portable exe. The portable exe is replaced by the new one in the same folder. If it was still called *Compare-Portable-1.2.0.exe*, the new one takes the new version's name; if you renamed it, it keeps your name. The portable app takes half a minute or so to open again, because it unpacks itself first.
+
+If Compare can't update itself, the button opens the download page instead. That happens with the zip build, and with a portable exe in a folder Compare can't write to.
+
 ## Troubleshooting
 
 **Windows SmartScreen warns me when I start the app.** The app isn't code-signed. Click **More info → Run anyway**.
@@ -238,9 +251,23 @@ The Sheet view (`src/renderer/sheet-view.js`) does the same for spreadsheets, us
 
 `src/hash-file.js` reads a file in 1 MB pieces and works out its MD5, SHA-1, SHA-256 and SHA-512 checksums in a single pass, so a large file is only read once. Two files are identical when they have the same size and the same SHA-256 checksum. A pasted checksum is recognized by its length: 32, 40, 64 or 128 hexadecimal digits.
 
+## Updating itself
+
+`src/updater.js` asks GitHub for the latest release ([the releases API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)) a few seconds after starting and every six hours. Only plain versions count, so drafts and pre-releases are never offered. `src/update.js` holds the parts that don't need Electron, so they can be tested: comparing versions, picking the right file, and the swap script.
+
+How the update is put in place depends on how Compare runs:
+
+- **Installed**: the update is `Compare-Setup-x.x.x.exe`, downloaded to the temp folder. It runs silently with `--updated /S`, and with `--force-run` to start the app again afterwards.
+- **Portable**: the portable exe unpacks itself to a temp folder each time it runs, and tells the app where it really is in `PORTABLE_EXECUTABLE_FILE`. The new `Compare-Portable-x.x.x.exe` is downloaded next to it, with `.compare-update` added to its name. Once the app quits, a small PowerShell script waits for the old exe to be unlocked, puts the new one in its place and, for a restart, starts it.
+- **Anything else** (the zip build): the button opens the release page.
+
+Every download is checked against the size and SHA-256 checksum GitHub lists for the file before it's used. Unfinished downloads are cleared away at the next start.
+
+Started straight from the app, PowerShell would either be closed along with it (Node ties child processes to their parent on Windows) or, started detached, have no console and quit at once. So the app starts a PowerShell that starts a second, hidden one, and waits only for the first. The file paths go to the script in environment variables, so no quoting can go wrong, whatever the folder is called.
+
 ## Privacy and settings
 
-Everything happens on your computer. Compare never connects to the internet and never uploads your files. The page isn't allowed to load anything from outside the app at all.
+Everything happens on your computer, and Compare never uploads your files. The only time it goes online is to ask GitHub whether a new version is out, and to download one when you click **Update**. The page isn't allowed to load anything from outside the app at all.
 
 Settings are stored in two places in Electron's user data folder under `%APPDATA%`. The main process keeps the window's size and position, the zoom and the last export folder in `settings.json`. The page keeps the theme, views, options and sidebar state in its own local storage.
 
@@ -255,6 +282,8 @@ Settings are stored in two places in Electron's user data folder under `%APPDATA
 | `src/sheet-look.js` | Reads the formatting of spreadsheets |
 | `src/table-text.js` | Turns spreadsheets into delimited text and back |
 | `src/hash-file.js` | Works out checksums |
+| `src/updater.js` | Checks for updates, downloads and applies them |
+| `src/update.js` | Versions, release files and the swap script for updates |
 | `src/renderer/app.js` | The page: workspaces, top bar, keyboard, find, export |
 | `src/renderer/diff-engine.js` | Compares texts line by line and word by word |
 | `src/renderer/table-diff.js` | Compares spreadsheets sheet by sheet |

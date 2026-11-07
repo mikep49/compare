@@ -82,6 +82,14 @@
         <path d="m7 10 5 5 5-5" />
         <path d="M5 21h14" />
       </symbol>
+      <symbol id="i-update" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M12 16.5v-9M8 11l4-4 4 4" />
+      </symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </symbol>
       <symbol id="i-copy" viewBox="0 0 24 24">
         <rect x="8" y="8" width="13" height="13" rx="2" />
         <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
@@ -137,6 +145,11 @@
       <button class="sidebar-item" data-kind="files" title="Files: any two files, checked by their SHA-256 checksums (Ctrl+3)">
         <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
         <span>Files</span>
+      </button>
+      <!-- Shown when a newer version is out; app.js names it. -->
+      <button id="update-btn" class="update-btn" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-update" /></svg>
+        <span></span>
       </button>
     </nav>
 
