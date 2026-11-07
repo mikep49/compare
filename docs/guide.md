@@ -344,11 +344,11 @@ npm test                 # run the tests
 npm run dist:installer   # build the installer and portable exe into dist/
 ```
 
-To publish a release, set `version` in `package.json`, commit, then push a matching tag:
+To publish a release, set `version` in `package.json`, write the release notes in `docs/releases/v1.3.0.md` (named after the tag), commit, then push a matching tag:
 
 ```
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
-GitHub Actions runs the tests, builds the installer and the portable exe, and publishes them as a release. The tests also run on every push to `main` and on every pull request.
+GitHub Actions runs the tests, builds the installer and the portable exe, and publishes them as a release with those notes. Without a notes file, the release lists the merged pull requests instead. The tests also run on every push to `main` and on every pull request.

@@ -1,5 +1,7 @@
 # Push a tag such as v1.1.0 (matching "version" in package.json) to build the
 # installer and the portable exe and publish them as a GitHub release.
+# The release notes come from docs/releases/<tag>.md when it exists; otherwise
+# they're GitHub's list of merged pull requests, without the authors' names.
 name: Release
 
 on:
@@ -24,9 +26,22 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npx electron-builder --win nsis portable --x64 --publish never
+      - name: Write the release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          if [ -f "$notes" ]; then
+            cp "$notes" release-notes.md
+          else
+            gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$GITHUB_REF_NAME" --jq .body \
+              | sed -E 's# by @[^ ]+ in https://github\.com/[^ ]+/pull/([0-9]+)$# (\#\1)#' \
+              | sed '/^## New Contributors/,/^$/d' > release-notes.md
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/Compare-Setup-*.exe
             dist/Compare-Portable-*.exe
-          generate_release_notes: true
+          body_path: release-notes.md
