@@ -46,6 +46,13 @@ contextBridge.exposeInMainWorld('compareApi', {
   saveFile: (options) => ipcRenderer.invoke('save-file', options),
   copyText: (text) => ipcRenderer.send('copy-text', text),
   setTheme: (theme) => ipcRenderer.send('set-theme', theme),
+  // The update on offer, as { status, version, percent, manual }; see
+  // updater.js. onUpdateState calls back whenever it changes.
+  getUpdateState: () => ipcRenderer.invoke('update-state'),
+  onUpdateState: (callback) => ipcRenderer.on('update-state', (_event, state) => callback(state)),
+  // Downloads the update, or restarts on it once downloaded. Returns
+  // { ok, error }.
+  update: () => ipcRenderer.invoke('update'),
   // True when the window sits on the Windows backdrop material.
   hasMaterial: process.argv.includes('--compare-material'),
 });

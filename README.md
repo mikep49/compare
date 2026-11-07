@@ -62,6 +62,8 @@ Get the latest version from the [Releases page](https://github.com/mikep49/compa
 
 The app isn't code-signed, so Windows SmartScreen may warn you the first time you run it. Click **More info → Run anyway**.
 
+From then on, Compare updates itself: when a new version is out, an **Update** button shows at the bottom left. This works for both the installer and the portable exe.
+
 New to Compare? The [user guide](docs/guide.md) covers everything it can do.
 
 ## License
