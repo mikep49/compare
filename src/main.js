@@ -164,8 +164,9 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
-// Files are read in a utility process, started when the first one is opened
-// and again should it ever stop (say, out of memory on a huge file).
+// Files are read, and code colored, in a utility process, started when the
+// first one is opened and again should it ever stop (say, out of memory on
+// a huge file).
 
 let reader = null;
 const readerJobs = new Map();
@@ -187,16 +188,18 @@ function startReader() {
   return child;
 }
 
-function readInBackground(file) {
+// `job` is { file } or { code }; see parse-worker.js.
+function runInBackground(job) {
   reader ??= startReader();
   const id = ++lastReaderJob;
   return new Promise((resolve) => {
     readerJobs.set(id, resolve);
-    reader.postMessage({ id, file });
+    reader.postMessage({ id, ...job });
   });
 }
 
-ipcMain.handle('parse-file', (_event, file) => readInBackground(file));
+ipcMain.handle('parse-file', (_event, file) => runInBackground({ file }));
+ipcMain.handle('highlight-code', (_event, code) => runInBackground({ code }));
 
 // Checksums being worked out, by the id the renderer gave them.
 const hashJobs = new Map();

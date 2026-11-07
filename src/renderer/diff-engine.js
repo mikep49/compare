@@ -96,6 +96,9 @@
     return text === '' ? [] : [{ text, changed: true }];
   }
 
+  // The words of two lines as segments, the ones only one side has marked
+  // changed. Lines with too little in common are marked whole, and come
+  // with `whole` set.
   function diffWords(leftLine, rightLine, opts) {
     const sides = [leftLine, rightLine].map((line) => {
       const tokens = line.match(TOKEN_RE) || [];
@@ -109,7 +112,7 @@
     });
 
     const flags = changedFlags(sides[0].keys, sides[1].keys);
-    if (!flags) return { left: whole(leftLine), right: whole(rightLine) };
+    if (!flags) return { left: whole(leftLine), right: whole(rightLine), whole: true };
     const words = (side) => side.keys.filter((key) => !/^\s/.test(key)).length;
     const commonWords = (side, sideFlags) =>
       side.keys.filter((key, i) => !sideFlags[i] && !/^\s/.test(key)).length;
@@ -118,7 +121,7 @@
       total === 0 ? 1 : (commonWords(sides[0], flags.left) + commonWords(sides[1], flags.right)) / total;
 
     if (similarity < MIN_SIMILARITY) {
-      return { left: whole(leftLine), right: whole(rightLine) };
+      return { left: whole(leftLine), right: whole(rightLine), whole: true };
     }
 
     const expand = (side, sideFlags) => {
@@ -258,5 +261,6 @@
     return hidden;
   }
 
-  return { compare, hiddenRows };
+  // The code comparison (code-diff.js) shares the rest.
+  return { compare, hiddenRows, diffWords, lineKey, partsInOrder, DIFF_TIMEOUT };
 });

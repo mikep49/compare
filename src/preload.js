@@ -17,8 +17,14 @@ async function describe(file) {
 }
 
 contextBridge.exposeInMainWorld('compareApi', {
-  // `table` has plain text read as a spreadsheet.
-  parseFile: async (file, { table = false } = {}) => ipcRenderer.invoke('parse-file', { ...(await describe(file)), table }),
+  // `table` has plain text read as a spreadsheet, `code` any file but
+  // documents and workbooks read as plain text.
+  parseFile: async (file, { table = false, code = false } = {}) =>
+    ipcRenderer.invoke('parse-file', { ...(await describe(file)), table, code }),
+  // Colors code; see highlight-code.js. `fileName` tells its language, and
+  // `language` sets it. Returns { ok, language, name, html }.
+  highlightCode: (text, { fileName = '', language = null } = {}) =>
+    ipcRenderer.invoke('highlight-code', { text, fileName, language }),
   // Works out a file's checksums. `id` names the job for cancelHash;
   // `onProgress` is called with the number of bytes read so far and the
   // total.

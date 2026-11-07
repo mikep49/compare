@@ -8,6 +8,7 @@ Compare shows two versions of something side by side and marks what changed. Thi
 - [Opening files](#opening-files)
 - [Documents](#documents)
 - [Spreadsheets](#spreadsheets)
+- [Code](#code)
 - [Files and checksums](#files-and-checksums)
 - [Options](#options)
 - [Moving around](#moving-around)
@@ -24,6 +25,7 @@ Compare shows two versions of something side by side and marks what changed. Thi
 - [Comparing text](#comparing-text)
 - [Showing documents as they look](#showing-documents-as-they-look)
 - [Comparing spreadsheets](#comparing-spreadsheets)
+- [Comparing code](#comparing-code)
 - [Checksums](#checksums)
 - [Updating itself](#updating-itself)
 - [Privacy and settings](#privacy-and-settings)
@@ -36,13 +38,13 @@ Compare shows two versions of something side by side and marks what changed. Thi
 
 ## Getting started
 
-1. **Pick what to compare** in the sidebar: **Documents**, **Spreadsheets** or **Files** (Ctrl+1, Ctrl+2, Ctrl+3). Each keeps its own two sides, so you can switch between them without losing anything.
+1. **Pick what to compare** in the sidebar: **Documents**, **Spreadsheets**, **Code** or **Files** (Ctrl+1 to Ctrl+4). Each keeps its own two sides, so you can switch between them without losing anything.
 2. **Fill both sides.** The left side is the *original* and the right side is the *changed* version. Paste text or cells, drop a file onto a side, or click **Open file**.
 3. **Click Compare** (Ctrl+Enter).
 
 Removed and changed text is marked in **red** on the original. Added and changed text is marked in **green** on the changed side. The bar at the bottom counts the changes, and its arrows take you from one change to the next.
 
-To change what's being compared, click **Edit texts** or **Edit tables** (Ctrl+Enter again). **⇄** swaps the two sides and **Clear** empties one. The **ⓘ** button next to a file's name shows its details: its size and dates, and for Word files and PDFs their title, author, pages and so on.
+To change what's being compared, click **Edit texts**, **Edit tables** or **Edit code** (Ctrl+Enter again). **⇄** swaps the two sides and **Clear** empties one. The **ⓘ** button next to a file's name shows its details: its size and dates, and for Word files and PDFs their title, author, pages and so on.
 
 ## Opening files
 
@@ -51,7 +53,7 @@ To change what's being compared, click **Edit texts** or **Edit tables** (Ctrl+E
 - **From Explorer**: select one or two files, right-click, and choose **Send to → Compare**. The installer adds this to the menu.
 - **Drop files onto the app's icon**, or run `Compare.exe original.docx changed.docx`.
 
-If Compare is already open, files sent to it this way open in the same window. Compare picks the right workspace from the file type: Word files and PDFs go to Documents, and workbooks to Spreadsheets. Files from Explorer that aren't documents or spreadsheets go to **Files**, where they're compared by checksum. Anything you drop into the Files workspace stays there.
+If Compare is already open, files sent to it this way open in the same window. Compare picks the right workspace from the file type: Word files and PDFs go to Documents, workbooks to Spreadsheets, and source code (`.js`, `.py`, `.cs`, `.ps1`, `.json`, `.html` and so on) to Code. Files from Explorer that are none of these go to **Files**, where they're compared by checksum. Anything you drop into the Files workspace stays there.
 
 What each workspace can open:
 
@@ -59,6 +61,7 @@ What each workspace can open:
 | --- | --- |
 | Documents | Word (`.docx`), PDF, and any plain text file (UTF-8, UTF-16 or Windows-1252) |
 | Spreadsheets | Excel (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`), OpenDocument (`.ods`, `.fods`), CSV and TSV |
+| Code | Any plain text file, CSV files included |
 | Files | Any file |
 
 Older and other formats such as `.doc`, `.rtf`, `.odt`, `.pages` and PowerPoint files can't be read as documents. Save them as `.docx` or PDF first.
@@ -112,6 +115,22 @@ The Sheet view shows each spreadsheet the way Excel does, with its column widths
 - **Cells are compared by what they show**: numbers as formatted, and formulas by their result. A changed formula that gives the same result isn't a difference, and neither is a change to a cell's formatting alone.
 - A column inserted or deleted in one sheet doesn't throw off the rest. Compare lines the columns up first, then the rows.
 
+## Code
+
+![The Code workspace: two versions of a JavaScript file side by side, colored, with the changes in hunks](images/code-light.png)
+
+The **Code** workspace compares source code the way GitHub shows the changes of a pull request. Open, drop or paste the two versions and click **Compare**.
+
+- **Split | Unified** in the top bar shows the two versions side by side, or the changes in one column with the removed lines above the added ones. Compare remembers which one you used last.
+- Each change comes with **three lines around it**, in a hunk. The hunk's header, such as `@@ -21,19 +26,19 @@ export class Cart {`, says where it starts on each side, how many lines it has there, and the function it's in, as `git diff` does.
+- The lines between the hunks are **folded away**. The arrow buttons next to a hunk's header bring back 20 lines above or below at a time, or all of them when there are only a few. The button at the left of the file's header unfolds the whole file, and folds it back again.
+- The code is **colored** in GitHub's colors, by the language its file name tells. Pasted code is recognized by what it looks like, and code pasted next to an opened file takes that file's language. The language shows at the right of the file's header.
+- Changed lines show the **words that changed** in a darker shade. When two lines have little in common, they're just marked as removed and added.
+- The file's header counts the **lines added and removed**, with GitHub's five squares.
+- Unlike in documents, **every line counts**, blank lines too, and so does a missing line break at the end of a file. A ⊖ at the end of a line marks it as the last line of a file without one.
+- In the Split view, selecting text on one side leaves the other alone, so you can copy the code of one version.
+- Code is colored up to 2 MB. Larger files are still compared, just in plain text.
+
 ## Files and checksums
 
 ![The Files workspace: two identical files and a pasted checksum that matches](images/files-light.png)
@@ -124,18 +143,18 @@ Files are read from disk a piece at a time, so even very large files work, with 
 
 ## Options
 
-The switches in the top bar apply to documents and spreadsheets:
+The switches in the top bar apply to documents, spreadsheets and code:
 
 - **Ignore case**: `Hello` and `hello` count as the same.
-- **Ignore whitespace**: spaces at the start and end of a line or cell don't count, and a run of spaces counts as one.
-- **Differences only**: hides everything that didn't change, except three lines around each change. This works in the Text and Table views. The Document and Sheet views always show everything.
+- **Ignore whitespace**: spaces at the start and end of a line or cell don't count, and a run of spaces counts as one. For code, so does a missing line break at the end of a file.
+- **Differences only**: hides everything that didn't change, except three lines around each change. This works in the Text and Table views. The Document and Sheet views always show everything. Code always shows its changes in hunks, so the switch isn't there.
 
 Compare remembers these settings.
 
 ## Moving around
 
 - **F8** and **Shift+F8**, or the arrows in the bottom bar, go to the next and previous change.
-- **Ctrl+F** finds text on both sides. **Enter** and **Shift+Enter** (or F3 and Shift+F3) go to the next and previous match, and **Esc** closes the search bar. Find works in the Text, Document, Table and Sheet views.
+- **Ctrl+F** finds text on both sides. **Enter** and **Shift+Enter** (or F3 and Shift+F3) go to the next and previous match, and **Esc** closes the search bar. Find works in the Text, Document, Table and Sheet views, and in code, where it searches the lines that aren't folded away.
 - **Ctrl+Plus**, **Ctrl+Minus** and **Ctrl+0** zoom the whole window. Over the Document and Sheet views, Ctrl+mouse wheel zooms the pages instead.
 - **Ctrl+B** collapses the sidebar to give the comparison more room.
 
@@ -143,8 +162,8 @@ Compare remembers these settings.
 
 Click the **download** button in the top bar, or press **Ctrl+S**:
 
-- **HTML report**: both sides with the changes marked, to read, share or print. Works for documents and spreadsheets.
-- **Patch file** (documents): the changes as a unified diff, the format `git` and other tools use. It includes the blank lines too, so it turns the original into the changed text exactly.
+- **HTML report**: both sides with the changes marked, to read, share or print. Works for documents, spreadsheets and code. For code, it shows the hunks as you see them, unfolded lines included, split or unified, in color.
+- **Patch file** (documents and code): the changes as a unified diff, the format `git` and other tools use. It includes the blank lines too, so it turns the original into the changed text exactly. For code, the hunk headers name the function each hunk is in, and a missing line break at the end is marked as `git` marks it.
 - **List of changes** (spreadsheets): a CSV file with every changed cell, row and column, to open in Excel.
 
 Compare remembers the folder you last saved to.
@@ -167,7 +186,7 @@ Compare also remembers its window size and position, its zoom, and which workspa
 | Enter / Shift+Enter, F3 / Shift+F3 | Next / previous match |
 | Esc | Close the search bar |
 | Ctrl+S | Export |
-| Ctrl+1, Ctrl+2, Ctrl+3 | Documents, Spreadsheets, Files |
+| Ctrl+1, Ctrl+2, Ctrl+3, Ctrl+4 | Documents, Spreadsheets, Code, Files |
 | Ctrl+B | Collapse or expand the sidebar |
 | Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset |
 | Ctrl+mouse wheel | Zoom (the pages, over the Document and Sheet views) |
@@ -191,7 +210,7 @@ If Compare can't update itself, the button opens the download page instead. That
 
 **"This PDF has no text to compare."** The PDF is made of scanned pages, which are pictures of text. Compare can only compare PDFs that contain real text.
 
-**"This doesn't look like a text file."** The Documents workspace can't read this file type. To check whether two such files are the same, use the **Files** workspace.
+**"This doesn't look like a text file."** The Documents and Code workspaces can't read this file type. To check whether two such files are the same, use the **Files** workspace.
 
 **The changes look odd in a very large file.** When two long texts have almost nothing in common, lining them up can take very long. After three seconds, Compare stops trying and compares the lines in order instead.
 
@@ -204,7 +223,7 @@ If Compare can't update itself, the button opens the download page instead. That
 Compare is an [Electron](https://www.electronjs.org/) app: a desktop app built with web technology. It has three parts:
 
 - **The main process** (`src/main.js`) opens the window, remembers settings, shows the save dialog, works out checksums, and takes in files from Explorer. Only one copy of the app runs: starting it again hands the files to the window that's already open.
-- **The file reader** (`src/parse-worker.js`) reads files in a separate background process. A big workbook or PDF never freezes the window while it loads. If the reader ever crashes, say on a file too big for memory, it simply starts again for the next file.
+- **The file reader** (`src/parse-worker.js`) reads files in a separate background process, and colors code there too. A big workbook, PDF or source file never freezes the window while it loads. If the reader ever crashes, say on a file too big for memory, it simply starts again for the next file.
 - **The page** (`src/renderer/`) is what you see. It compares the two sides and draws the results.
 
 ## Reading files
@@ -247,6 +266,18 @@ The Sheet view (`src/renderer/sheet-view.js`) does the same for spreadsheets, us
 3. **Line up the rows** on the columns both sheets have, the same way as lines of text. Where rows were removed and added in the same place, the most similar pairs (at least half their cells the same) become **changed** rows. The others stay removed or added.
 4. **Compare the cells** of each changed row to find the ones that differ.
 
+## Comparing code
+
+`src/renderer/code-diff.js` compares code the way `git diff` does, which differs from documents in a few ways:
+
+1. **Every line counts.** Blank lines are compared like any other, and a file whose last line has no line break differs from one whose last line has.
+2. The longest run of lines the two have in common is found with jsdiff, as for documents.
+3. **Runs of added or removed lines are slid into place.** Code repeats lines such as `}` and blank lines a lot, so a function added between two others could be shown starting at the closing brace of the one before it. Like git's compaction heuristic, Compare moves each such run as far down as it can, or up from there to the nearest place where it ends with a blank line.
+4. Removed and added lines in the same place are paired as changed lines, and compared word by word, as for documents. Lines with little in common aren't marked word by word.
+5. The changes are shown in **hunks**, with three unchanged lines around each. A hunk's header gives where it starts and how many lines it has on each side, and the nearest line before it that starts a function, which is, as in git, the nearest line that starts with a letter, `_` or `$`.
+
+The code is colored with [highlight.js](https://highlightjs.org/) (`src/highlight-code.js`), in the background process, so that a large file doesn't hold up the window. `src/code-languages.js` tells the language from the file's name. Code without one is recognized by highlight.js from its first 20,000 characters, and left plain when no language fits it well. `src/renderer/code-html.js` then cuts the colored code into lines and marks the changed words in them, and `src/renderer/code-view.js` draws the hunks.
+
 ## Checksums
 
 `src/hash-file.js` reads a file in 1 MB pieces and works out its MD5, SHA-1, SHA-256 and SHA-512 checksums in a single pass, so a large file is only read once. Two files are identical when they have the same size and the same SHA-256 checksum. A pasted checksum is recognized by its length: 32, 40, 64 or 128 hexadecimal digits.
@@ -279,6 +310,8 @@ Settings are stored in two places in Electron's user data folder under `%APPDATA
 | `src/preload.js` | The bridge between the page and the main process |
 | `src/parse-worker.js` | Background process that reads files |
 | `src/parse-file.js` | Reads Word, PDF, text and spreadsheet files |
+| `src/highlight-code.js` | Colors code with highlight.js |
+| `src/code-languages.js` | Tells the language of a source file from its name |
 | `src/sheet-look.js` | Reads the formatting of spreadsheets |
 | `src/table-text.js` | Turns spreadsheets into delimited text and back |
 | `src/hash-file.js` | Works out checksums |
@@ -287,12 +320,16 @@ Settings are stored in two places in Electron's user data folder under `%APPDATA
 | `src/renderer/app.js` | The page: workspaces, top bar, keyboard, find, export |
 | `src/renderer/diff-engine.js` | Compares texts line by line and word by word |
 | `src/renderer/table-diff.js` | Compares spreadsheets sheet by sheet |
+| `src/renderer/code-diff.js` | Compares code as git does, in hunks; writes code patches |
+| `src/renderer/code-html.js` | Turns colored code into lines, with the changed words marked |
+| `src/renderer/code-view.js` | The code view, split or unified |
+| `src/renderer/find-text.js` | Find in the text and code views |
 | `src/renderer/doc-align.js` | Carries text changes over to the pages of a document |
 | `src/renderer/doc-sources.js` | Lays out Word files and PDFs as pages |
 | `src/renderer/doc-view.js` | The Document view |
 | `src/renderer/sheet-view.js` | The Sheet view |
 | `src/renderer/table-view.js` | The Table view |
-| `src/renderer/report.js` | HTML reports, patch files and CSV lists of changes |
+| `src/renderer/report.js` | HTML reports, text patch files and CSV lists of changes |
 | `build/installer.nsh` | Adds *Send to → Compare* when installing |
 | `test/` | Tests, run with Node's built-in test runner |
 

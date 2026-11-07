@@ -34,8 +34,8 @@ const CHECKSUM_LENGTHS = { 32: 'md5', 40: 'sha1', 64: 'sha256', 128: 'sha512' };
 const SHEET_FILE = /\.(xlsx|xlsm|xlsb|xls|ods|fods|csv|tsv|tab)$/i;
 
 // What sets the workspaces apart. Documents are compared as text, line by
-// line; spreadsheets as tables, cell by cell; files of any kind by their
-// checksums.
+// line; spreadsheets as tables, cell by cell; code line by line as GitHub
+// does; files of any kind by their checksums.
 const KINDS = {
   docs: {
     label: 'Documents',
@@ -77,6 +77,24 @@ const KINDS = {
       },
     },
   },
+  code: {
+    label: 'Code',
+    icon: '#i-code',
+    paste: { left: 'Paste the original code', right: 'Paste the changed code' },
+    drop: 'or drop a file here — any source code or text file',
+    edit: 'Edit code',
+    // Both views always apply: the code side by side, or in one column.
+    views: {
+      key: 'codeView',
+      plain: { value: 'split', label: 'Split', icon: '#i-compare', title: 'Split: the two versions side by side' },
+      look: {
+        value: 'unified',
+        label: 'Unified',
+        icon: '#i-unified',
+        title: 'Unified: the changes in one column, removed lines above added ones',
+      },
+    },
+  },
   files: {
     label: 'Files',
     titles: { left: 'File A', right: 'File B' },
@@ -90,8 +108,9 @@ let messageTimer;
 
 // How compared documents and spreadsheets are shown: as lines of text or a
 // table ('plain'), or as they look ('look') when there's a Word file, PDF or
-// workbook to show. Remembered from one start to the next.
-const preferredView = { docs: 'plain', sheets: 'plain' };
+// workbook to show. Code is split side by side ('plain') or unified in one
+// column ('look'). Remembered from one start to the next.
+const preferredView = { docs: 'plain', sheets: 'plain', code: 'plain' };
 for (const kind of Object.keys(preferredView)) {
   try {
     const { key, look } = KINDS[kind].views;
@@ -116,7 +135,6 @@ function showMessage(text, kind = 'error', duration = 6000) {
 
 const fileName = (filePath) => filePath.split(/[\\/]/).pop();
 const stem = (name) => name.replace(/\.[^.]+$/, '');
-const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function formatValue(value) {
   if (value instanceof Date) return value.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -268,8 +286,11 @@ function createWorkspace(kind) {
   const positionEl = find('.position');
   const statsEl = find('.stats');
   const docEl = find('.doc-view');
-  // Spreadsheets are shown as tables, everything else as lines of text.
+  const codeEl = find('.code-view');
+  // Spreadsheets are shown as tables, code as GitHub shows it, documents
+  // as lines of text.
   const tableView = kind === 'sheets' ? createTableView(tableEl) : null;
+  const codeView = kind === 'code' ? createCodeView(codeEl, { onRender: () => refreshFind() }) : null;
   // Both can also be shown as they look: documents pages and all,
   // spreadsheets formatting and all.
   let lookView = null;
@@ -292,8 +313,10 @@ function createWorkspace(kind) {
   let currentBlock = -1;
   // First row of each run in the text diff.
   let blocks = [];
-  // The text comparison on show, as DiffEngine.compare() returned it.
+  // The text comparison on show, as DiffEngine.compare() returned it, or
+  // the code comparison, as CodeDiff.compare() did.
   let textResult = null;
+  let codeResult = null;
   // One comparison per pair of sheets.
   let sheetDiffs = [];
   let activeSheet = 0;
@@ -324,6 +347,7 @@ function createWorkspace(kind) {
 
     pane.textarea.setAttribute('aria-label', config.paste[side]);
     pane.textarea.classList.toggle('table-text', kind === 'sheets');
+    pane.textarea.classList.toggle('code-text', kind === 'code');
     body.querySelector('.empty-hint use').setAttribute('href', config.icon);
     body.querySelector('.empty-hint strong').textContent = config.paste[side];
     body.querySelector('.empty-hint span').textContent = config.drop;
@@ -388,6 +412,9 @@ function createWorkspace(kind) {
   // Whether either side holds a Word file, PDF or workbook, which can be
   // shown as it looks.
   const hasDocument = () => SIDES.some((side) => Boolean(panes[side].file?.source));
+  // Whether the second of the two views can be picked: code can always be
+  // unified, the rest takes a file to show as it looks.
+  const canShowLook = () => Boolean(codeView) || hasDocument();
 
   // What the document view shows on each side: the Word file or PDF opened
   // there, or else the text, on a page of its own.
@@ -417,16 +444,18 @@ function createWorkspace(kind) {
   }
 
   // Shows the comparison as lines of text or a table or, when that's the
-  // view asked for and there's a file to show, as the files look. Returns
-  // whether that changed.
+  // view asked for and there's a file to show, as the files look; code
+  // split or unified. Returns whether that changed.
   function renderView() {
     const look = Boolean(lookView) && comparing && preferredView[kind] === 'look' && hasDocument();
     const changed = look !== showingLook;
     showingLook = look;
     root.classList.toggle('doc-mode', look);
-    diffView.hidden = !comparing || Boolean(tableView) || look;
+    diffView.hidden = !comparing || Boolean(tableView || codeView) || look;
     tableEl.hidden = !comparing || !tableView || look;
+    codeEl.hidden = !comparing || !codeView;
     docEl.hidden = !look;
+    if (codeView) return codeView.setLayout(preferredView[kind] === 'look' ? 'unified' : 'split');
     // The comparison on show: the texts, or the pair of sheets.
     const shown = tableView ? sheetDiffs[activeSheet] : textResult;
     if (look && shown && lookShownFor !== shown) {
@@ -442,6 +471,7 @@ function createWorkspace(kind) {
     if (currentBlock < 0) return;
     if (showingLook) lookView.goTo(currentBlock);
     else if (tableView) tableView.goTo(currentBlock);
+    else if (codeView) codeView.goTo(currentBlock);
     else blocks[currentBlock].scrollIntoView({ block: 'center' });
   }
 
@@ -546,6 +576,18 @@ function createWorkspace(kind) {
     showSummary(blocks.length, stats, 'line');
   }
 
+  function compareCode(options) {
+    const [left, right] = SIDES.map((side) => panes[side].textarea.value);
+    codeResult = CodeDiff.compare(left, right, options);
+    codeView.setLayout(preferredView[kind] === 'look' ? 'unified' : 'split');
+    codeView.show(codeResult, { left: panes.left.file?.name ?? '', right: panes.right.file?.name ?? '' });
+    const { rows, blocks: codeBlocks, stats } = codeResult;
+    if (rows.length === 0) showNote('Nothing to compare yet — both sides are empty.', true);
+    else if (codeBlocks.length === 0) showNote('The two versions are identical.', false);
+    else showNote('', false);
+    showSummary(codeBlocks.length, { removed: stats.deletions, added: stats.additions }, 'line');
+  }
+
   function renderTabs() {
     sheetTabs.hidden = sheetDiffs.length < 2;
     sheetTabs.replaceChildren(
@@ -632,7 +674,8 @@ function createWorkspace(kind) {
     if (tableView) {
       compareSheets(options, keepSheet);
     } else {
-      compareTexts(options);
+      if (codeView) compareCode(options);
+      else compareTexts(options);
       renderView();
       refreshFind();
     }
@@ -653,12 +696,14 @@ function createWorkspace(kind) {
     if (lookView) lookView.clear();
     lookShownFor = null;
     if (tableView) tableView.clear();
+    if (codeView) codeView.clear();
     sheetTabs.hidden = true;
     showNote('', false);
     navigatorEl.hidden = true;
     blocks = [];
     blockCount = 0;
     textResult = null;
+    codeResult = null;
     sheetDiffs = [];
   }
 
@@ -679,7 +724,7 @@ function createWorkspace(kind) {
     const previous = currentBlock;
     if (currentBlock < 0) currentBlock = step > 0 ? 0 : blockCount - 1;
     else currentBlock = (currentBlock + step + blockCount) % blockCount;
-    if (!tableView) {
+    if (!tableView && !codeView) {
       // The lines keep up even while the documents are on show.
       if (previous >= 0) blocks[previous].classList.remove('current');
       blocks[currentBlock].classList.add('current');
@@ -699,54 +744,24 @@ function createWorkspace(kind) {
   }
 
   // Find. Spreadsheets are searched by their table or sheet view, which only
-  // have the rows in sight in the DOM, and documents shown as they look by
-  // the document view; the text diff is searched on the page and its
-  // matches painted with the CSS Custom Highlight API.
+  // have the rows in sight in the DOM, documents shown as they look by the
+  // document view, and code by the code view; the text diff is searched on
+  // the page and its matches painted with the CSS Custom Highlight API.
 
   // The view that does its own finding, if that's the one on show.
-  const finder = () => (showingLook ? lookView : tableView);
+  const finder = () => (showingLook ? lookView : (tableView ?? codeView));
 
   // The text of each line on show, both sides in turn, searched for `query`.
   function textMatches(query) {
-    const pattern = new RegExp(escapeRegExp(query), 'giu');
     const hideFar = diffView.classList.contains('only-diff');
-    const ranges = [];
-    for (const rowEl of diffView.children) {
-      if (hideFar && rowEl.classList.contains('far')) continue;
-      for (const cell of rowEl.querySelectorAll('.cell')) {
-        const nodes = [];
-        let text = '';
-        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-          nodes.push({ node: walker.currentNode, start: text.length });
-          text += walker.currentNode.data;
-        }
-        if (text === '') continue;
-        // Where in the cell's text nodes a place in its text is.
-        const locate = (offset, isEnd) => {
-          let i = nodes.length - 1;
-          while (i > 0 && (nodes[i].start > offset || (isEnd && nodes[i].start === offset))) i--;
-          return [nodes[i].node, offset - nodes[i].start];
-        };
-        for (const match of text.matchAll(pattern)) {
-          const range = new Range();
-          range.setStart(...locate(match.index, false));
-          range.setEnd(...locate(match.index + match[0].length, true));
-          ranges.push(range);
-          if (ranges.length >= 100000) return ranges;
-        }
-      }
-    }
-    return ranges;
+    const rowsOnShow = [...diffView.children].filter((rowEl) => !(hideFar && rowEl.classList.contains('far')));
+    return FindText.ranges(
+      rowsOnShow.flatMap((rowEl) => [...rowEl.querySelectorAll('.cell')]),
+      query
+    );
   }
 
-  function paintFind() {
-    const all = new Highlight();
-    for (const range of findRanges) all.add(range);
-    CSS.highlights.set('find', all);
-    if (findIndex >= 0) CSS.highlights.set('find-current', new Highlight(findRanges[findIndex]));
-    else CSS.highlights.delete('find-current');
-  }
+  const paintFind = () => FindText.paint(findRanges, findIndex);
 
   // Looks for `query`, whatever its case. With `go`, goes to the first match.
   function search(query, go = true) {
@@ -804,17 +819,20 @@ function createWorkspace(kind) {
     const base = panes.left.file || panes.right.file ? `${stem(leftName)} vs ${stem(rightName)}` : 'Comparison';
     const created = new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
     const names = { leftName, rightName, options: comparedOptions, created };
-    if (format === 'patch' && textResult) {
-      const content = Report.textPatch({ rows: textResult.rows, leftName, rightName });
+    if (format === 'patch' && (textResult || codeResult)) {
+      const content = codeResult
+        ? CodeDiff.patch(codeResult, { leftName, rightName })
+        : Report.textPatch({ rows: textResult.rows, leftName, rightName });
       if (!content) return { empty: true };
       return { name: `${base}.patch`, filters: [{ name: 'Patch file', extensions: ['patch', 'diff'] }], content };
     }
     if (format === 'csv' && tableView) {
       return { name: `${base}.csv`, filters: [{ name: 'CSV', extensions: ['csv'] }], content: Report.sheetCsv({ diffs: sheetDiffs }) };
     }
-    const content = tableView
-      ? Report.sheetReport({ diffs: sheetDiffs, ...names })
-      : Report.textReport({ ...textResult, ...names, onlyDifferences: optOnly.checked });
+    let content;
+    if (tableView) content = Report.sheetReport({ diffs: sheetDiffs, ...names });
+    else if (codeResult) content = Report.codeReport({ diff: codeResult, ...codeView.exportState(), ...names });
+    else content = Report.textReport({ ...textResult, ...names, onlyDifferences: optOnly.checked });
     return { name: `${base}.html`, filters: [{ name: 'Web page', extensions: ['html'] }], content };
   }
 
@@ -831,7 +849,7 @@ function createWorkspace(kind) {
     get showingLook() {
       return showingLook;
     },
-    hasDocument,
+    canShowLook,
     // A step in (1) or out (-1).
     zoomDocuments: (step) => lookView?.zoomStep(step),
     isEmpty: (side) => panes[side].textarea.value === '' && !panes[side].loading,
@@ -999,7 +1017,13 @@ function createFilesWorkspace() {
   };
 }
 
-const workspaces = { docs: createWorkspace('docs'), sheets: createWorkspace('sheets'), files: createFilesWorkspace() };
+// In the order of the sidebar.
+const workspaces = {
+  docs: createWorkspace('docs'),
+  sheets: createWorkspace('sheets'),
+  code: createWorkspace('code'),
+  files: createFilesWorkspace(),
+};
 // The workspace on show.
 let active = workspaces.docs;
 
@@ -1044,7 +1068,7 @@ function renderTopbar() {
   const choosing = Boolean(views) && active.comparing;
   viewSwitch.hidden = !choosing;
   if (choosing) {
-    const canShowLook = active.hasDocument();
+    const canShowLook = active.canShowLook();
     const view = canShowLook ? preferredView[active.kind] : 'plain';
     for (const button of viewButtons) {
       const option = views[button.dataset.view];
@@ -1088,6 +1112,8 @@ function activate(kind) {
   for (const workspace of Object.values(workspaces)) workspace.root.hidden = workspace !== active;
   for (const item of sidebarItems) item.setAttribute('aria-current', String(item.dataset.kind === kind));
   for (const control of compareControls) control.hidden = kind === 'files';
+  // Code always shows its changes in hunks, which open up where asked.
+  optOnlySwitch.hidden = kind === 'code';
   try {
     localStorage.setItem('workspace', kind);
   } catch {
@@ -1105,12 +1131,14 @@ function toggleComparing() {
 
 // Opens a file on one side of the workspace it belongs in, which need not be
 // the one on show: spreadsheets go to theirs, Word documents and PDFs to the
-// documents. Plain text stays where it was opened and is read accordingly.
-// Among the files everything stays, to be compared as it is.
+// documents. Plain text stays where it was opened and is read accordingly;
+// in the code workspace, CSV files count as plain text too. Among the files
+// everything stays, to be compared as it is.
 //
-// Files from Explorer (`fromExplorer`) go where their type says; those that
-// can't be read as text at all have their checksums compared instead.
-// Without a `side` a file takes the first free side.
+// Files from Explorer (`fromExplorer`) go where their type says, source
+// code to the code workspace; those that can't be read as text at all have
+// their checksums compared instead. Without a `side` a file takes the first
+// free side.
 
 // Counts the files opened on each side, so that a slow one doesn't land on
 // top of one opened after it.
@@ -1118,8 +1146,10 @@ const loads = { left: 0, right: 0 };
 
 async function loadFile(side, file, { fromExplorer = false } = {}) {
   let from = active.kind;
-  if (fromExplorer) from = SHEET_FILE.test(file.name) ? 'sheets' : 'docs';
-  else if (from === 'files') {
+  if (fromExplorer) {
+    if (SHEET_FILE.test(file.name)) from = 'sheets';
+    else from = CodeLanguages.isCode(file.name) ? 'code' : 'docs';
+  } else if (from === 'files') {
     active.load(side, file);
     return;
   }
@@ -1131,7 +1161,7 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
   origin.setLoading(side, file.name, load);
   let result;
   try {
-    result = await window.compareApi.parseFile(file, { table: from === 'sheets' });
+    result = await window.compareApi.parseFile(file, { table: from === 'sheets', code: from === 'code' });
   } catch (error) {
     // Folders, for one, can't be read at all.
     result = { ok: false, error: error.message };
@@ -1147,7 +1177,9 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
     showMessage(`Couldn't open ${file.name}: ${result.error}`);
     return;
   }
-  const kind = result.sheets ? 'sheets' : 'docs';
+  let kind = 'docs';
+  if (result.sheets) kind = 'sheets';
+  else if (from === 'code' && !result.source) kind = 'code';
   const opened = { name: file.name, details: result.details, sheets: result.sheets, source: result.source };
   workspaces[kind].setText(side, result.text, opened);
   if (kind !== active.kind) activate(kind);
@@ -1319,7 +1351,7 @@ const ZOOM_KEYS = { '=': 'in', '+': 'in', NumpadAdd: 'in', '-': 'out', NumpadSub
 
 document.addEventListener('keydown', (event) => {
   const key = event.key.toLowerCase();
-  // Ctrl+1, Ctrl+2, Ctrl+3: the workspaces in the order of the sidebar.
+  // Ctrl+1 to Ctrl+4: the workspaces in the order of the sidebar.
   const kind = event.ctrlKey ? Object.keys(workspaces)[Number(event.key) - 1] : undefined;
   const zoom = event.ctrlKey && !event.altKey && ZOOM_KEYS[event.code.startsWith('Numpad') ? event.code : event.key];
   if (zoom) {

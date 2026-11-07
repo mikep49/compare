@@ -118,6 +118,40 @@
         <rect x="3" y="4" width="18" height="16" rx="2" />
         <path d="M3 9.5h18M3 14.5h18M12 4v16" />
       </symbol>
+      <symbol id="i-code" viewBox="0 0 24 24">
+        <path d="m16 18 6-6-6-6" />
+        <path d="m8 6-6 6 6 6" />
+      </symbol>
+      <symbol id="i-unified" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <path d="M8 9h8M8 12h8M8 15h5" />
+      </symbol>
+      <symbol id="i-fold-up" viewBox="0 0 24 24">
+        <path d="M12 20V10" />
+        <path d="m7 15 5-5 5 5" />
+        <path d="M5 4h14" />
+      </symbol>
+      <symbol id="i-fold-down" viewBox="0 0 24 24">
+        <path d="M12 4v10" />
+        <path d="m7 9 5 5 5-5" />
+        <path d="M5 20h14" />
+      </symbol>
+      <symbol id="i-unfold" viewBox="0 0 24 24">
+        <path d="M12 22v-6M12 8V2" />
+        <path d="M4 12H2M10 12H8M16 12h-2M22 12h-2" />
+        <path d="m15 19-3 3-3-3" />
+        <path d="m15 5-3-3-3 3" />
+      </symbol>
+      <symbol id="i-fold" viewBox="0 0 24 24">
+        <path d="M12 22v-6M12 8V2" />
+        <path d="M4 12H2M10 12H8M16 12h-2M22 12h-2" />
+        <path d="m15 19-3-3-3 3" />
+        <path d="m15 5-3 3-3-3" />
+      </symbol>
+      <symbol id="i-no-eol" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M8 12h8" />
+      </symbol>
       <symbol id="i-link" viewBox="0 0 24 24">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -142,7 +176,11 @@
         <svg class="icon" aria-hidden="true"><use href="#i-table" /></svg>
         <span>Spreadsheets</span>
       </button>
-      <button class="sidebar-item" data-kind="files" title="Files: any two files, checked by their SHA-256 checksums (Ctrl+3)">
+      <button class="sidebar-item" data-kind="code" title="Code: source code, compared as GitHub shows changes (Ctrl+3)">
+        <svg class="icon" aria-hidden="true"><use href="#i-code" /></svg>
+        <span>Code</span>
+      </button>
+      <button class="sidebar-item" data-kind="files" title="Files: any two files, checked by their SHA-256 checksums (Ctrl+4)">
         <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
         <span>Files</span>
       </button>
@@ -168,10 +206,10 @@
         <svg class="icon" aria-hidden="true"><use href="#i-download" /></svg>
       </button>
       <div id="export-menu" class="menu" popover>
-        <button data-format="html" data-kinds="docs sheets">
+        <button data-format="html" data-kinds="docs sheets code">
           <strong>HTML report</strong><span>Both sides with the changes marked, to read or print</span>
         </button>
-        <button data-format="patch" data-kinds="docs">
+        <button data-format="patch" data-kinds="docs code">
           <strong>Patch file</strong><span>The changes as a unified diff, for git and other tools</span>
         </button>
         <button data-format="csv" data-kinds="sheets">
@@ -179,8 +217,8 @@
         </button>
       </div>
 
-      <!-- Text | Document for documents, Table | Sheet for spreadsheets; app.js
-           names the buttons. -->
+      <!-- Text | Document for documents, Table | Sheet for spreadsheets, Split |
+           Unified for code; app.js names the buttons. -->
       <div id="view-switch" class="segmented" role="radiogroup" aria-label="View" hidden>
         <button role="radio" data-view="plain">
           <svg class="icon" aria-hidden="true"><use href="#i-lines" /></svg><span></span>
@@ -279,6 +317,19 @@
             <span></span>
           </div>
           <div class="diff-view" hidden></div>
+
+          <div class="code-view" hidden>
+            <div class="code-head">
+              <button class="btn ghost icon-btn code-expand">
+                <svg class="icon" aria-hidden="true"><use href="#i-unfold" /></svg>
+              </button>
+              <span class="code-name"></span>
+              <span class="code-stat"></span>
+              <span class="spacer"></span>
+              <span class="code-language"></span>
+            </div>
+            <div class="code-scroll"><div class="code-diff"></div></div>
+          </div>
 
           <div class="doc-view" hidden>
           <div class="doc-pane" data-side="left">
@@ -411,10 +462,15 @@
 
     <script src="../../node_modules/diff/dist/diff.min.js"></script>
     <script src="diff-engine.js"></script>
+    <script src="code-diff.js"></script>
+    <script src="code-html.js"></script>
+    <script src="../code-languages.js"></script>
     <script src="../table-text.js"></script>
     <script src="table-diff.js"></script>
     <script src="table-view.js"></script>
     <script src="report.js"></script>
+    <script src="find-text.js"></script>
+    <script src="code-view.js"></script>
     <script src="doc-align.js"></script>
     <script src="doc-sources.js"></script>
     <script src="doc-view.js"></script>

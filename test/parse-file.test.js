@@ -183,6 +183,17 @@ test('plain text is read as a table only when asked to', async () => {
   await assert.rejects(parseFile({ ...file('old.doc', Buffer.from('x')), table: true }), /aren't supported/);
 });
 
+test('as code, CSV files are plain text, and binary files are still rejected', async () => {
+  const csv = await parseFile({ ...file('data.csv', Buffer.from('a,b\n1,2\n')), code: true });
+  assert.equal(csv.sheets, undefined);
+  assert.equal(csv.text, 'a,b\n1,2\n');
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([['x']]), 'Data');
+  const xlsx = await parseFile({ ...file('book.xlsx', XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })), code: true });
+  assert.equal(xlsx.sheets[0].name, 'Data');
+  await assert.rejects(parseFile({ ...file('image.bin', Buffer.from([0, 1, 2])), code: true }), /doesn't look like a text file/);
+});
+
 test('unsupported and binary files are rejected', async () => {
   await assert.rejects(parseFile(file('old.doc', Buffer.from('x'))), /aren't supported/);
   await assert.rejects(parseFile(file('image.bin', Buffer.from([0, 1, 2]))), /doesn't look like a text file/);

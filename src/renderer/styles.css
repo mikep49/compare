@@ -860,6 +860,12 @@ textarea.table-text {
   white-space: pre;
 }
 
+/* Code, its lines unwrapped and indented as in an editor. */
+textarea.code-text {
+  white-space: pre;
+  tab-size: 4;
+}
+
 .empty-hint {
   position: absolute;
   inset: 0;
@@ -1178,6 +1184,397 @@ dd.copyable span {
   border-radius: 3px;
   box-shadow: inset 0 0 0 1.5px var(--accent);
   pointer-events: none;
+}
+
+/* Code view: two versions of code as GitHub shows their changes. A head
+   with the file's name, the lines added and removed and the language; then
+   the hunks, split side by side or unified in one column, each under a
+   header with the buttons that bring back the lines folded away. The code
+   is colored as on GitHub. */
+
+:root[data-theme='light'] {
+  --code-removed-num: rgba(229, 72, 77, 0.16);
+  --code-added-num: rgba(48, 164, 108, 0.2);
+  --code-empty: rgba(0, 0, 0, 0.03);
+  --code-hunk: rgba(66, 99, 235, 0.08);
+  --code-fold: rgba(66, 99, 235, 0.16);
+  --syn-keyword: #cf222e;
+  --syn-entity: #8250df;
+  --syn-constant: #0550ae;
+  --syn-string: #0a3069;
+  --syn-variable: #953800;
+  --syn-comment: #6e7781;
+  --syn-tag: #116329;
+}
+
+:root[data-theme='dark'],
+:root[data-theme='oled'] {
+  --code-removed-num: rgba(229, 72, 77, 0.26);
+  --code-added-num: rgba(48, 164, 108, 0.26);
+  --code-empty: rgba(255, 255, 255, 0.03);
+  --code-hunk: rgba(91, 124, 250, 0.12);
+  --code-fold: rgba(91, 124, 250, 0.24);
+  --syn-keyword: #ff7b72;
+  --syn-entity: #d2a8ff;
+  --syn-constant: #79c0ff;
+  --syn-string: #a5d6ff;
+  --syn-variable: #ffa657;
+  --syn-comment: #8b949e;
+  --syn-tag: #7ee787;
+}
+
+.code-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px 0 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.code-name {
+  min-width: 0;
+  overflow: hidden;
+  font: 600 12.5px var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.code-name:empty {
+  display: none;
+}
+
+.code-stat {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-added {
+  color: var(--added-text);
+}
+
+.code-removed {
+  color: var(--removed-text);
+}
+
+/* GitHub's five squares: the share of added and removed lines. */
+.code-squares {
+  display: inline-flex;
+  gap: 1px;
+  margin-left: 2px;
+}
+
+.code-squares i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--control-hover);
+}
+
+.code-squares .added {
+  background: var(--added);
+}
+
+.code-squares .removed {
+  background: var(--removed);
+}
+
+.code-language {
+  flex: none;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.code-expand[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.code-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+/* --digits, set by code-view.js, is the length of the longest line number.
+   The space at the bottom keeps the navigator off the last line. */
+.code-diff {
+  --digits: 2;
+  --code-num: calc(max(var(--digits), 3) * 1ch + 22px);
+  padding-bottom: 84px;
+  font: 12.5px/20px var(--font-mono);
+  font-variant-ligatures: none;
+  tab-size: 4;
+  user-select: text;
+}
+
+/* Lines out of sight are laid out only once they come into view. */
+.ln {
+  position: relative;
+  display: grid;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 20px;
+}
+
+.code-diff.split .ln {
+  grid-template-columns: var(--code-num) minmax(0, 1fr) var(--code-num) minmax(0, 1fr);
+}
+
+.code-diff.unified .ln {
+  grid-template-columns: var(--code-num) var(--code-num) minmax(0, 1fr);
+}
+
+.ln-num {
+  padding: 0 10px;
+  color: var(--faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+/* The + or − before a line is drawn, so that copying leaves it out. */
+.ln-code {
+  position: relative;
+  min-width: 0;
+  padding: 0 14px 0 24px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ln-code.del::before,
+.ln-code.add::before {
+  position: absolute;
+  left: 10px;
+  user-select: none;
+}
+
+.ln-code.del::before {
+  content: '−';
+  color: var(--removed-text);
+}
+
+.ln-code.add::before {
+  content: '+';
+  color: var(--added-text);
+}
+
+.code-diff.split .ln-code.l {
+  border-right: 1px solid var(--border);
+}
+
+.ln-code.del {
+  background: var(--removed-bg);
+}
+
+.ln-code.add {
+  background: var(--added-bg);
+}
+
+.ln-num.del {
+  background: var(--code-removed-num);
+  color: var(--text);
+}
+
+.ln-num.add {
+  background: var(--code-added-num);
+  color: var(--text);
+}
+
+.ln-code.del .x {
+  border-radius: 2px;
+  background: var(--removed-hl);
+}
+
+.ln-code.add .x {
+  border-radius: 2px;
+  background: var(--added-hl);
+}
+
+/* Beside a line the other side doesn't have. */
+.ln .empty {
+  background: var(--code-empty);
+}
+
+.no-eol {
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--removed);
+  vertical-align: -3px;
+  user-select: none;
+}
+
+.no-eol .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Selecting on one side of the split view leaves the other alone. */
+.code-diff.split[data-select='l'] .ln-code.r,
+.code-diff.split[data-select='r'] .ln-code.l {
+  user-select: none;
+}
+
+/* A hunk's header, @@ -12,7 +12,9 @@ and the function it is in, with the
+   buttons for the lines folded away before it. */
+.hunk {
+  display: grid;
+  grid-template-columns: var(--code-num) minmax(0, 1fr);
+  min-height: 32px;
+  background: var(--code-hunk);
+  color: var(--muted);
+  user-select: none;
+}
+
+.code-diff.unified .hunk {
+  grid-template-columns: calc(2 * var(--code-num)) minmax(0, 1fr);
+}
+
+.hunk-expand {
+  display: flex;
+  flex-direction: column;
+  background: var(--code-fold);
+}
+
+.hunk-text {
+  align-self: center;
+  padding: 0 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.hunk-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.hunk-btn:hover {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.hunk-btn .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.hunk.tall {
+  min-height: 44px;
+}
+
+/* The run of differences gone to last. */
+.ln.current::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-inline: 1.5px solid var(--accent);
+  pointer-events: none;
+}
+
+.ln.current.first::after {
+  border-top: 1.5px solid var(--accent);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.ln.current.last::after {
+  border-bottom: 1.5px solid var(--accent);
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
+/* highlight.js's classes, in GitHub's colors. */
+.hljs-doctag,
+.hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  color: var(--syn-keyword);
+}
+
+.hljs-title {
+  color: var(--syn-entity);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-section {
+  color: var(--syn-constant);
+}
+
+.hljs-regexp,
+.hljs-string {
+  color: var(--syn-string);
+}
+
+.hljs-built_in,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--syn-variable);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--syn-comment);
+}
+
+.hljs-name,
+.hljs-quote,
+.hljs-selector-pseudo,
+.hljs-selector-tag {
+  color: var(--syn-tag);
+}
+
+.hljs-section,
+.hljs-strong {
+  font-weight: 600;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-addition {
+  color: var(--added-text);
+}
+
+.hljs-deletion {
+  color: var(--removed-text);
 }
 
 /* Sheet tabs: one per pair of sheets, when the spreadsheets have several. */
