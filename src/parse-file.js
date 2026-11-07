@@ -354,12 +354,14 @@ function sheetProperties(sheets) {
 }
 
 // `asTable` reads a file of no particular type as delimited text instead of
+// plain text, and `asCode` any file but Word files, PDFs and workbooks as
 // plain text.
-function parseContent(name, buffer, asTable) {
+function parseContent(name, buffer, asTable, asCode) {
   const ext = path.extname(name).toLowerCase();
   if (ext === '.docx') return parseDocx(buffer);
   if (ext === '.pdf') return parsePdf(buffer);
   if (WORKBOOKS.has(ext)) return parseWorkbook(buffer, ext);
+  if (asCode) return parseText(buffer);
   if (DELIMITED.has(ext)) return parseDelimited(buffer, DELIMITED.get(ext));
   if (UNSUPPORTED.has(ext)) {
     throw unsupported(`${ext} files aren't supported. Save the document as .docx, .pdf or plain text first.`);
@@ -373,18 +375,19 @@ async function readFromDisk(filePath) {
   return fs.readFile(filePath);
 }
 
-// `file` is { name, filePath, lastModified, bytes, table }; without `bytes`
-// the file is read from `filePath`. Returns the file's text and its details
-// as groups of { label, value } items; spreadsheets also return their
-// `sheets` as [{ name, rows }] with rows of cell texts. With `table` set,
-// plain text counts as a spreadsheet too. `warning` says when a file opened
+// `file` is { name, filePath, lastModified, bytes, table, code }; without
+// `bytes` the file is read from `filePath`. Returns the file's text and its
+// details as groups of { label, value } items; spreadsheets also return
+// their `sheets` as [{ name, rows }] with rows of cell texts. With `table`
+// set, plain text counts as a spreadsheet too, and with `code` set, CSV
+// files count as plain text. `warning` says when a file opened
 // but likely isn't what was expected. Word files and PDFs come with their
 // `source`, { kind, bytes }, for the document view to show them as they
 // look; workbooks with theirs, { kind: 'workbook', looks }, for the sheet
 // view, one look per sheet (see sheet-look.js).
 async function parseFile(file) {
   const buffer = file.bytes ? Buffer.from(file.bytes) : await readFromDisk(file.filePath);
-  const { text, properties, sheets, warning, source } = await parseContent(file.name, buffer, file.table);
+  const { text, properties, sheets, warning, source } = await parseContent(file.name, buffer, file.table, file.code);
   const content = sheets ? sheetProperties(sheets) : contentProperties(text);
   const details = [await fileProperties(file, buffer.length), properties, content];
   return { text, sheets, warning, source, details: details.filter((entry) => entry.items.length > 0) };

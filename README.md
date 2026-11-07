@@ -4,7 +4,7 @@
 
 # Compare
 
-**See what changed between two documents, spreadsheets or files.**<br>
+**See what changed between two documents, spreadsheets, pieces of code or files.**<br>
 A free Windows app that shows them side by side and marks every difference.
 
 [![Latest release](https://img.shields.io/github/v/release/mikep49/compare?label=download)](https://github.com/mikep49/compare/releases/latest)
@@ -33,6 +33,15 @@ Compare **Excel, OpenDocument and CSV** files cell by cell and sheet by sheet. W
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/sheet-dark.png">
   <img src="docs/images/sheet-light.png" alt="Two versions of an Excel workbook side by side, with changed cells and rows marked">
+</picture>
+
+## Code
+
+Compare **source code** the way GitHub shows a pull request: changes in hunks with line numbers, syntax colors for JavaScript, Python, C#, PowerShell and many more languages, and the changed words marked. Switch between **Split** and **Unified**, and unfold the lines around a change when you need more context.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/code-dark.png">
+  <img src="docs/images/code-light.png" alt="Two versions of a JavaScript file side by side, colored, with the changed lines in red and green and the hunks folded GitHub-style">
 </picture>
 
 ## Files

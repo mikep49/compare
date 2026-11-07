@@ -1,13 +1,13 @@
-// Turns a comparison into files to save: an HTML report for either kind, a
+// Turns a comparison into files to save: an HTML report for every kind, a
 // patch for texts and a list of changed cells for spreadsheets. Loaded as a
 // plain script in the renderer and via require() in tests.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory(require('./diff-engine'), require('../table-text'));
+    module.exports = factory(require('./diff-engine'), require('../table-text'), require('./code-diff'), require('./code-html'));
   } else {
-    root.Report = factory(root.DiffEngine, root.TableText);
+    root.Report = factory(root.DiffEngine, root.TableText, root.CodeDiff, root.CodeHtml);
   }
-})(typeof self !== 'undefined' ? self : this, function (DiffEngine, TableText) {
+})(typeof self !== 'undefined' ? self : this, function (DiffEngine, TableText, CodeDiff, CodeHtml) {
   // Unchanged lines kept around each change, in patches and in reports that
   // show only the differences.
   const CONTEXT = 3;
@@ -112,14 +112,49 @@
     .none { color: var(--muted); }
   `;
 
-  function page(title, body) {
+  // Code as GitHub shows it, colored as on GitHub.
+  const CODE_STYLE = `
+    :root { --hunk: rgba(66,99,235,.1); --hunk-text: #6b6b76; --removed-num: rgba(229,72,77,.16); --added-num: rgba(48,164,108,.2);
+      --empty: rgba(0,0,0,.03); --keyword: #cf222e; --entity: #8250df; --constant: #0550ae; --string: #0a3069;
+      --variable: #953800; --comment: #6e7781; --tag: #116329; }
+    @media (prefers-color-scheme: dark) { :root { --hunk: rgba(91,124,250,.16); --hunk-text: #a3a3a3;
+      --removed-num: rgba(229,72,77,.26); --added-num: rgba(48,164,108,.26); --empty: rgba(255,255,255,.03);
+      --keyword: #ff7b72; --entity: #d2a8ff; --constant: #79c0ff; --string: #a5d6ff; --variable: #ffa657;
+      --comment: #8b949e; --tag: #7ee787; } }
+    .code { table-layout: fixed; font: 12.5px/20px 'Cascadia Mono', Consolas, monospace; tab-size: 4; }
+    .code col.num { width: 60px; }
+    .code td { padding: 0 10px; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .code td.num { color: var(--muted); text-align: right; user-select: none; }
+    .code td.line { position: relative; padding-left: 22px; }
+    .code td.line.l { border-right: 1px solid var(--border); }
+    .code td.line.del::before { content: '-'; position: absolute; left: 8px; color: var(--removed); }
+    .code td.line.add::before { content: '+'; position: absolute; left: 8px; color: var(--added); }
+    .code td.line.del { background: var(--removed-bg); } .code td.line.add { background: var(--added-bg); }
+    .code td.num.del { background: var(--removed-num); } .code td.num.add { background: var(--added-num); }
+    .code td.empty { background: var(--empty); }
+    .code .del .x { background: var(--removed-hl); } .code .add .x { background: var(--added-hl); }
+    .code tr.hunk td { padding: 5px 12px; background: var(--hunk); color: var(--hunk-text); white-space: pre; }
+    .code .no-eol { color: var(--removed); }
+    .hljs-doctag, .hljs-keyword, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_ { color: var(--keyword); }
+    .hljs-title { color: var(--entity); }
+    .hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator, .hljs-variable,
+      .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id, .hljs-section { color: var(--constant); }
+    .hljs-regexp, .hljs-string { color: var(--string); }
+    .hljs-built_in, .hljs-symbol, .hljs-bullet { color: var(--variable); }
+    .hljs-comment, .hljs-code, .hljs-formula { color: var(--comment); }
+    .hljs-name, .hljs-quote, .hljs-selector-pseudo, .hljs-selector-tag { color: var(--tag); }
+    .hljs-section, .hljs-strong { font-weight: 600; } .hljs-emphasis { font-style: italic; }
+    .hljs-addition { color: var(--added); } .hljs-deletion { color: var(--removed); }
+  `;
+
+  function page(title, body, style = STYLE) {
     return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<style>${STYLE}</style>
+<style>${style}</style>
 </head>
 <body>
 <main>
@@ -186,6 +221,67 @@ ${summary([
 <tbody>
 ${body.join('\n')}
 </tbody></table></div>`
+    );
+  }
+
+  // An HTML page with two versions of code as the app shows them: the rows
+  // `shown` (one flag per row; by default each change with a few lines
+  // around it) in hunks, split side by side or unified in one column
+  // (`layout`), and colored by `tokens`: per side, the lines of tokens of
+  // CodeHtml.toLines(), or null.
+  function codeReport({ diff, shown, layout = 'split', tokens = {}, leftName, rightName, options, created }) {
+    const split = layout !== 'unified';
+    const code = (side, line) => {
+      const html = CodeHtml.lineHtml(line.text, tokens[side]?.[line.num - 1] ?? null, line.segments);
+      return line.noEol ? `${html} <span class="no-eol" title="No newline at end of file">⊖</span>` : html;
+    };
+    const body = [];
+    for (const { gap, hunk } of CodeDiff.hunks(diff, shown ?? CodeDiff.initialShown(diff))) {
+      const folded = gap.end - gap.start;
+      if (hunk || folded > 0) {
+        const text = hunk ? hunk.header : `⋯ ${plural(folded, 'unchanged line')}`;
+        body.push(`<tr class="hunk"><td colspan="${split ? 4 : 3}">${escapeHtml(text)}</td></tr>`);
+      }
+      if (!hunk) continue;
+      if (split) {
+        for (let i = hunk.start; i < hunk.end; i++) {
+          const row = diff.rows[i];
+          const cells = ['left', 'right'].map((side, s) => {
+            const line = row[side];
+            const sideClass = s === 0 ? 'l' : 'r';
+            if (!line) return `<td class="num empty"></td><td class="line ${sideClass} empty"></td>`;
+            const kind = row.type === 'equal' ? '' : s === 0 ? ' del' : ' add';
+            return `<td class="num${kind}">${line.num}</td><td class="line ${sideClass}${kind}">${code(side, line)}</td>`;
+          });
+          body.push(`<tr>${cells.join('')}</tr>`);
+        }
+      } else {
+        for (const { row: i, side } of CodeDiff.unified(diff.rows, hunk.start, hunk.end)) {
+          const row = diff.rows[i];
+          if (!side) {
+            body.push(`<tr><td class="num">${row.left.num}</td><td class="num">${row.right.num}</td><td class="line">${code('right', row.right)}</td></tr>`);
+            continue;
+          }
+          const line = row[side];
+          const kind = side === 'left' ? 'del' : 'add';
+          const [leftNum, rightNum] = side === 'left' ? [line.num, ''] : ['', line.num];
+          body.push(`<tr><td class="num ${kind}">${leftNum}</td><td class="num ${kind}">${rightNum}</td><td class="line ${kind}">${code(side, line)}</td></tr>`);
+        }
+      }
+    }
+    const columns = split ? '<col class="num"><col><col class="num"><col>' : '<col class="num"><col class="num"><col>';
+    return page(
+      `${leftName} vs ${rightName}`,
+      `${header('Code comparison', { leftName, rightName, options, created })}
+${summary([
+  [diff.stats.additions, 'line', 'added'],
+  [diff.stats.deletions, 'line', 'removed'],
+])}
+<div class="scroll"><table class="code"><colgroup>${columns}</colgroup>
+<tbody>
+${body.join('\n')}
+</tbody></table></div>`,
+      STYLE + CODE_STYLE
     );
   }
 
@@ -288,5 +384,5 @@ ${sections.join('\n')}`
     );
   }
 
-  return { textPatch, textReport, sheetReport, sheetCsv, sheetChanges, escapeHtml };
+  return { textPatch, textReport, codeReport, sheetReport, sheetCsv, sheetChanges, escapeHtml };
 });

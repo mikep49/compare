@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const Diff = require('diff');
 const DiffEngine = require('../src/renderer/diff-engine');
 const TableDiff = require('../src/renderer/table-diff');
+const CodeDiff = require('../src/renderer/code-diff');
+const CodeHtml = require('../src/renderer/code-html');
 const Report = require('../src/renderer/report');
 
 const lines = (count, label = 'line') => Array.from({ length: count }, (_, i) => `${label} ${i + 1}`);
@@ -108,4 +110,25 @@ test('the text report leaves a side with fewer blank lines empty, not hatched', 
   const filler = (type) => (report.match(new RegExp(`<tr class="${type}">.*`, 'g')) || []).filter((row) => row.includes('filler'));
   assert.equal(filler('equal').length, 0);
   assert.equal(filler('removed').length, 1);
+});
+
+test('the code report shows the hunks as the app does, colored and escaped', () => {
+  const left = [...lines(30, '  item'), 'if (a < b) {', '}'];
+  const right = [...lines(30, '  item'), 'if (a < c) {', '}'];
+  const diff = CodeDiff.compare(left.join('\n'), right.join('\n'));
+  const base = { diff, leftName: 'a.js', rightName: 'b.js', options: {}, created: 'today' };
+  const has = (html, part) => assert.ok(html.includes(part), `missing: ${part}`);
+  const split = Report.codeReport(base);
+  has(split, '<h1>Code comparison</h1>');
+  has(split, '1 line added');
+  has(split, '<tr class="hunk"><td colspan="4">@@ -28,5 +28,5 @@</td></tr>');
+  has(split, '<td class="num del">31</td><td class="line l del">if (a &lt; <span class="x">b</span>) {</td>');
+  assert.ok(!split.includes('>  item 27<'));
+
+  const colored = right.map((line) => CodeHtml.escapeHtml(line).replace('if', '<span class="hljs-keyword">if</span>')).join('\n');
+  const tokens = { left: null, right: CodeHtml.toLines(colored) };
+  const unified = Report.codeReport({ ...base, layout: 'unified', tokens, shown: new Uint8Array(diff.rows.length).fill(1) });
+  has(unified, '<tr class="hunk"><td colspan="3">@@ -1,32 +1,32 @@</td></tr>');
+  has(unified, '<td class="num del">31</td><td class="num del"></td><td class="line del">');
+  has(unified, '<td class="line add"><span class="hljs-keyword">if</span> (a &lt; <span class="x">c</span>)');
 });
