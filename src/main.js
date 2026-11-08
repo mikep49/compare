@@ -18,16 +18,18 @@ const { startUpdater } = require('./updater');
 // Must match --topbar-height in styles.css.
 const TITLE_BAR_HEIGHT = 48;
 
-// The Mica backdrop needs Windows 11 22H2 (build 22621) or newer; everywhere
-// else the window gets a solid background instead.
+// The backdrop materials need Windows 11 22H2 (build 22621) or newer;
+// everywhere else the window gets a solid background instead.
 const hasMaterial = process.platform === 'win32' && Number(os.release().split('.')[2]) >= 22621;
 
 // `chrome` must match the --chrome values in styles.css. `material` is the
-// backdrop: light Mica is close to white and shows little of the wallpaper,
-// so the light theme takes Mica Alt ('tabbed'), which is tinted more strongly.
+// backdrop behind the sidebar and top bar: Acrylic, which blurs what is
+// behind the window and so shows much more than Mica, which only takes the
+// wallpaper's colour. --chrome-tint in styles.css keeps the text on it
+// readable. OLED keeps Mica, which stays dark.
 const THEMES = {
-  light: { source: 'light', chrome: '#f3f3f3', symbols: '#18181b', material: 'tabbed' },
-  dark: { source: 'dark', chrome: '#202020', symbols: '#ededed', material: 'mica' },
+  light: { source: 'light', chrome: '#f3f3f3', symbols: '#18181b', material: 'acrylic' },
+  dark: { source: 'dark', chrome: '#202020', symbols: '#ededed', material: 'acrylic' },
   oled: { source: 'dark', chrome: '#000000', symbols: '#e8e8e8', material: 'mica' },
 };
 

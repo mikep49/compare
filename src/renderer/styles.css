@@ -14,7 +14,8 @@
 :root[data-theme='light'] {
   color-scheme: light;
   --chrome: #f3f3f3;
-  --chrome-tint: transparent;
+  /* Lightens the Acrylic backdrop so the text on it stays readable. */
+  --chrome-tint: rgba(243, 243, 243, 0.5);
   --surface: #ffffff;
   --raised: #ffffff;
   --segment: #ffffff;
@@ -48,7 +49,8 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
   --chrome: #202020;
-  --chrome-tint: transparent;
+  /* Darkens the Acrylic backdrop so the text on it stays readable. */
+  --chrome-tint: rgba(32, 32, 32, 0.4);
   --surface: #272727;
   --raised: #333333;
   --segment: rgba(255, 255, 255, 0.13);
