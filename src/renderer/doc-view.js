@@ -2,7 +2,9 @@
 // they look, pages and all, with the changes the comparison found marked on
 // them. Built in a .doc-view element; app.js shows it instead of the lines
 // of text. Each side scrolls on its own and, with "Scroll together" on, the
-// other side keeps the same place in view.
+// other side keeps the same place in view. With "Differences only" on, the
+// lines without a change are faded: in Word files and plain text the
+// paragraphs and lines are, as the Text view has them; in PDFs the lines.
 function createDocView(root, { onFindChange } = {}) {
   const SIDES = ['left', 'right'];
   const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
@@ -17,7 +19,8 @@ function createDocView(root, { onFindChange } = {}) {
   const MAX_MATCHES = 100000;
   // The highlights this view paints, in the order they're painted in.
   // doc-current is the run of differences gone to last.
-  const LAYERS = ['doc-removed', 'doc-added', 'doc-current', 'find', 'find-current'];
+  // doc-same is the text faded by "Differences only".
+  const LAYERS = ['doc-same', 'doc-removed', 'doc-added', 'doc-current', 'find', 'find-current'];
 
   const zoomLabel = root.querySelector('.doc-zoom-level');
   const syncButton = root.querySelector('.doc-sync');
@@ -31,6 +34,7 @@ function createDocView(root, { onFindChange } = {}) {
       content: pane.querySelector('.doc-content'),
       pagesEl: pane.querySelector('.doc-pages'),
       marksEl: pane.querySelector('.doc-marks'),
+      veilEl: pane.querySelector('.doc-veil'),
       statusEl: pane.querySelector('.doc-status'),
       // The document on show, as open() made it.
       entry: null,
@@ -43,6 +47,13 @@ function createDocView(root, { onFindChange } = {}) {
       // (see DocAlign.pieces) with their block, also by block.
       changes: [],
       byBlock: new Map(),
+      // The text of the lines without a change, as pieces like the changes,
+      // for documents whose text can be faded itself.
+      same: [],
+      // For documents drawn on canvases, the changes by page and where the
+      // lines with changes are on each page, as lineBands() works them out.
+      byPage: new Map(),
+      bands: new Map(),
       // Per block, the place in the document's text to show for it.
       anchors: [],
       // Pieces of the find matches on this side.
@@ -84,6 +95,10 @@ function createDocView(root, { onFindChange } = {}) {
   let syncTable = null;
   // The highlights last painted, by name.
   const painted = new Map();
+  // Whether the lines without a change are faded, and the frame they're
+  // faded again in.
+  let fade = false;
+  let veilFrame = 0;
 
   const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const clampZoom = (value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
@@ -107,6 +122,7 @@ function createDocView(root, { onFindChange } = {}) {
 
   // The pieces each highlight is made of, as [side, pieces] pairs.
   function layer(name) {
+    if (name === 'doc-same') return fade ? SIDES.map((key) => [sides[key], sides[key].same]) : [];
     if (name === 'doc-removed') return [[sides.left, sides.left.changes]];
     if (name === 'doc-added') return [[sides.right, sides.right.changes]];
     if (name === 'doc-current') return SIDES.map((key) => [sides[key], sides[key].byBlock.get(current) ?? []]);
@@ -295,6 +311,82 @@ function createDocView(root, { onFindChange } = {}) {
     }
   }
 
+  // The lines with changes on a page of a PDF, as [top, bottom] shares of
+  // its height, joined where they meet. Kept once the page's text is laid
+  // out: they stay the same at any zoom.
+  function lineBands(side, page) {
+    const kept = side.bands.get(page);
+    if (kept) return kept;
+    const box = page.getBoundingClientRect();
+    const lines = [];
+    let complete = true;
+    for (const piece of side.byPage.get(Number(page.dataset.page)) ?? []) {
+      const range = rangeOf(side, piece);
+      if (!range) {
+        complete = false;
+        continue;
+      }
+      for (const rect of range.getClientRects()) {
+        if (rect.width === 0 || rect.height === 0) continue;
+        lines.push([(rect.top - box.top) / box.height, (rect.bottom - box.top) / box.height]);
+      }
+    }
+    const bands = [];
+    for (const [top, bottom] of lines.sort((a, b) => a[0] - b[0])) {
+      const last = bands.at(-1);
+      if (last && top <= last[1]) last[1] = Math.max(last[1], bottom);
+      else bands.push([Math.max(0, top), Math.min(1, bottom)]);
+    }
+    // Text still to be laid out: worked out again next time.
+    if (complete) side.bands.set(page, bands);
+    return bands;
+  }
+
+  // Fades the lines without a change in PDFs, whose text is drawn on
+  // canvases: over each page, a veil the color of the paper with gaps where
+  // the lines with changes are.
+  function renderVeils() {
+    veilFrame = 0;
+    for (const name of SIDES) {
+      const side = sides[name];
+      side.veilEl.replaceChildren();
+      if (!fade || !rows || root.hidden || !sourceOf(side)?.textOnCanvas) continue;
+      const base = side.content.getBoundingClientRect();
+      const veils = [];
+      for (const page of side.pagesEl.querySelectorAll('.doc-page')) {
+        const box = page.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        const veil = document.createElement('div');
+        veil.className = 'doc-veil-page';
+        veil.style.cssText = `left:${box.left - base.left}px;top:${box.top - base.top}px;width:${box.width}px;height:${box.height}px`;
+        let at = 0;
+        for (const [top, bottom] of [...lineBands(side, page), [1, 1]]) {
+          if (top > at) {
+            const part = document.createElement('div');
+            part.style.top = `${at * 100}%`;
+            part.style.height = `${(top - at) * 100}%`;
+            veil.append(part);
+          }
+          at = Math.max(at, bottom);
+        }
+        veils.push(veil);
+      }
+      side.veilEl.append(...veils);
+    }
+  }
+
+  function scheduleVeils() {
+    veilFrame ||= requestAnimationFrame(renderVeils);
+  }
+
+  // Fades the lines without a change, or brings them back.
+  function setFade(on) {
+    if (on === fade) return;
+    fade = on;
+    paint('doc-same');
+    scheduleVeils();
+  }
+
   function renderZoom() {
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
     zoomLabel.setAttribute('aria-pressed', String(fit));
@@ -324,6 +416,7 @@ function createDocView(root, { onFindChange } = {}) {
     syncTable = null;
     renderZoom();
     renderMarks();
+    scheduleVeils();
     // Pages are drawn anew once the zoom settles.
     clearTimeout(redrawTimer);
     redrawTimer = setTimeout(() => {
@@ -353,6 +446,9 @@ function createDocView(root, { onFindChange } = {}) {
   function markChanges(side) {
     side.changes = [];
     side.byBlock = new Map();
+    side.same = [];
+    side.byPage = new Map();
+    side.bands = new Map();
     side.anchors = [];
     const source = sourceOf(side);
     if (!source || !rows) return;
@@ -371,8 +467,26 @@ function createDocView(root, { onFindChange } = {}) {
       piece.page = source.pageOf(piece.run);
       if (!side.byBlock.has(piece.block)) side.byBlock.set(piece.block, []);
       side.byBlock.get(piece.block).push(piece);
+      if (!side.byPage.has(piece.page)) side.byPage.set(piece.page, []);
+      side.byPage.get(piece.page).push(piece);
     }
     side.anchors = anchors.map((offset) => side.aligner.point(offset));
+    if (!source.textOnCanvas) markSame(side, source.model);
+  }
+
+  // The lines of a document's text without a change, for fading. The text
+  // has a line break between paragraphs, and plain text its own lines.
+  function markSame(side, model) {
+    const { text, runStarts } = model;
+    const changed = side.changes.map((piece) => runStarts[piece.run] + piece.start).sort((a, b) => a - b);
+    let next = 0;
+    for (let start = 0; start <= text.length; ) {
+      let end = text.indexOf('\n', start);
+      if (end < 0) end = text.length;
+      while (next < changed.length && changed[next] < start) next++;
+      if (end > start && !(next < changed.length && changed[next] < end)) DocAlign.pieces(start, end, model, side.same);
+      start = end + 1;
+    }
   }
 
   function findMatches() {
@@ -413,6 +527,7 @@ function createDocView(root, { onFindChange } = {}) {
       if (!owner) return;
       paintPage(owner, page);
       if (current >= 0) renderMarks();
+      scheduleVeils();
     });
     entry.source.setZoom(zoom);
   }
@@ -428,9 +543,11 @@ function createDocView(root, { onFindChange } = {}) {
     }
     syncTable = null;
     fitZoom();
+    paint('doc-same');
     paint('doc-removed');
     paint('doc-added');
     paint('doc-current');
+    scheduleVeils();
     if (query) {
       findMatches();
       paint('find');
@@ -562,8 +679,9 @@ function createDocView(root, { onFindChange } = {}) {
     matches = [];
     currentMatch = -1;
     for (const name of SIDES) {
-      Object.assign(sides[name], { changes: [], byBlock: new Map(), anchors: [], found: [] });
+      Object.assign(sides[name], { changes: [], byBlock: new Map(), same: [], byPage: new Map(), bands: new Map(), anchors: [], found: [] });
       sides[name].marksEl.replaceChildren();
+      sides[name].veilEl.replaceChildren();
     }
     for (const [name, highlight] of painted) {
       if (CSS.highlights.get(name) === highlight) CSS.highlights.delete(name);
@@ -605,6 +723,7 @@ function createDocView(root, { onFindChange } = {}) {
     fitZoom();
     syncTable = null;
     renderMarks();
+    scheduleVeils();
   }).observe(root);
 
   renderZoom();
@@ -616,6 +735,7 @@ function createDocView(root, { onFindChange } = {}) {
     search,
     goToMatch,
     searchState,
+    setFade,
     // Zooms a step in (1) or out (-1), as Ctrl and the mouse wheel do.
     zoomStep: stepZoom,
   };

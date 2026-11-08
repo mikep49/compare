@@ -15,6 +15,8 @@
 //   in `scroller`, calling onPage(index) as each one is ready.
 // - setZoom(zoom, redraw): draws pages for the zoom they're shown at.
 // - destroy()
+// - textOnCanvas: true for PDFs, whose text is drawn on canvases; the text
+//   pdf.js lays over them is there to be selected and marked, out of sight.
 const DocSources = (() => {
   const LIBS = new URL('../../node_modules/', location.href).href;
   // CSS pixels per PDF point: pages are shown at their printed size at 100%.
@@ -332,6 +334,7 @@ const DocSources = (() => {
     return {
       el,
       model,
+      textOnCanvas: true,
       width: () => Math.max(0, ...pages.map((page) => page.viewport.width)),
       node,
       pageOf: (run) => refs[run]?.page ?? -1,

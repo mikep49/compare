@@ -5,7 +5,7 @@
 // .doc-view element like the document view, and has only the rows and
 // columns in view in the DOM. Each side scrolls on its own and, with
 // "Scroll together" on, the other side keeps the rows that go together in
-// view.
+// view. With "Differences only" on, the rows without a change are faded.
 function createSheetView(root) {
   const SIDES = ['left', 'right'];
   const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
@@ -416,12 +416,21 @@ function createSheetView(root) {
     if (after > 0) span.style.right = `${-after}px`;
   }
 
+  // Whether cells from `row` and `column` to `bottom` and `right` are in a
+  // row or column the comparison marks.
+  function changedIn(side, row, column, bottom, right) {
+    for (let r = row; r <= bottom; r++) if (side.rowMarks.has(r)) return true;
+    for (let c = column; c <= right; c++) if (side.colMarks.has(c)) return true;
+    return false;
+  }
+
   // A cell, or merged cells from it to `bottom` and `right`.
   function cellElement(side, row, column, near, bottom = row, right = column) {
     const { tops, lefts } = side;
     const number = styleAt(side, row, column);
     const style = side.styles[number] ?? side.styles[0];
     const el = element(`ss-c ${side.prefix}-${number}`);
+    if (!changedIn(side, row, column, bottom, right)) el.classList.add('ss-same');
     const top = tops[row];
     const left = lefts[column];
     el.style.cssText = `top:${top}px;left:${left}px;width:${lefts[right + 1] - left}px;height:${tops[bottom + 1] - top}px`;
@@ -872,6 +881,9 @@ function createSheetView(root) {
 
   const searchState = () => ({ index: currentMatch, count: matches.length });
 
+  // Fades the rows without a change, or brings them back.
+  const setFade = (on) => root.classList.toggle('fade-same', on);
+
   function clear() {
     diff = null;
     blocks = [];
@@ -926,6 +938,7 @@ function createSheetView(root) {
     search,
     goToMatch,
     searchState,
+    setFade,
     // Zooms a step in (1) or out (-1), as Ctrl and the mouse wheel do.
     zoomStep: stepZoom,
   };

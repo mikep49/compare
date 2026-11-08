@@ -54,7 +54,7 @@ const KINDS = {
         icon: '#i-page',
         title: 'Document: the files as they look, pages and all',
         missing: 'Document: open a Word file or PDF to see it as it looks',
-        whole: 'Differences only: the Document view always shows the whole documents',
+        fade: "Differences only: fades the lines that didn't change",
       },
     },
   },
@@ -73,7 +73,7 @@ const KINDS = {
         icon: '#i-table',
         title: 'Sheet: the spreadsheets as they look, formatting and all',
         missing: 'Sheet: open an Excel or OpenDocument spreadsheet to see it as it looks',
-        whole: 'Differences only: the Sheet view always shows the whole sheets',
+        fade: "Differences only: fades the rows that didn't change",
       },
     },
   },
@@ -448,6 +448,9 @@ function createWorkspace(kind) {
   // split or unified. Returns whether that changed.
   function renderView() {
     const look = Boolean(lookView) && comparing && preferredView[kind] === 'look' && hasDocument();
+    // Shown as they look, the files are shown whole, with what didn't
+    // change faded.
+    lookView?.setFade(optOnly.checked);
     const changed = look !== showingLook;
     showingLook = look;
     root.classList.toggle('doc-mode', look);
@@ -1082,11 +1085,8 @@ function renderTopbar() {
     if (!canShowLook) lookButton.title = views.look.missing;
   }
 
-  // The files shown as they look are always shown whole.
-  const showingLook = Boolean(active.showingLook);
-  optOnly.disabled = showingLook;
-  optOnlySwitch.classList.toggle('disabled', showingLook);
-  optOnlySwitch.title = showingLook ? views.look.whole : 'Differences only';
+  // The files shown as they look stay whole: what didn't change is faded.
+  optOnlySwitch.title = active.showingLook ? views.look.fade : 'Differences only';
 }
 
 function selectView(view) {
