@@ -147,7 +147,7 @@ The switches in the top bar apply to documents, spreadsheets and code:
 
 - **Ignore case**: `Hello` and `hello` count as the same.
 - **Ignore whitespace**: spaces at the start and end of a line or cell don't count, and a run of spaces counts as one. For code, so does a missing line break at the end of a file.
-- **Differences only**: hides everything that didn't change, except three lines around each change. This works in the Text and Table views. The Document and Sheet views always show everything. Code always shows its changes in hunks, so the switch isn't there.
+- **Differences only**: in the Text and Table views, hides everything that didn't change, except three lines around each change. The Document and Sheet views keep the pages whole and gray out the lines and rows that didn't change instead, so the changes stand out. Code always shows its changes in hunks, so the switch isn't there.
 
 Compare remembers these settings.
 

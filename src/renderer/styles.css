@@ -622,15 +622,6 @@ textarea {
   margin-left: 6px;
 }
 
-/* A switch that doesn't apply to the view on show. */
-.switch.disabled {
-  opacity: 0.45;
-}
-
-.switch.disabled:hover {
-  color: var(--muted);
-}
-
 /* Too little room in the top bar for the names of the themes, and then for
    those of the views. */
 @container topbar (max-width: 900px) {
@@ -1890,6 +1881,8 @@ dd.copyable span {
    bottom keeps the navigator off the last page. */
 .doc-content {
   position: relative;
+  /* Word pages stack their text with z-index: it stays in here. */
+  isolation: isolate;
   width: max-content;
   min-width: 100%;
   padding-bottom: 72px;
@@ -2024,11 +2017,42 @@ dd.copyable span {
   color: transparent;
 }
 
+/* "Differences only": the lines without a change faded, in Word files and
+   plain text by their own color; PDFs are drawn on canvases, so there
+   under a veil the color of the paper, over the text layer, which Word
+   pages also lift with z-index. */
+::highlight(doc-same) {
+  color: #b8b8b8;
+}
+
+.doc-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.doc-veil-page {
+  position: absolute;
+}
+
+.doc-veil-page > div {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-paper='dark'] .doc-veil-page {
+  filter: var(--paper-filter);
+}
+
 /* Beside the run of differences gone to last, a bar in the page margin; a
    caret marks where text the other side has goes in. */
 .doc-marks {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -2290,6 +2314,11 @@ dd.copyable span {
 
 .ss-c.ss-merged::after {
   content: none;
+}
+
+/* "Differences only": the cells of rows without a change, faded. */
+.fade-same .ss-c.ss-same {
+  opacity: 0.28;
 }
 
 /* The text of a cell, above the fills of the cells it spills over. */
