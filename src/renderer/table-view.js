@@ -224,15 +224,26 @@ function createTableView(root) {
     }
   }
 
-  // Lists the rows to show and starts over at the top.
-  function list() {
+  // The row at the top of the view, by its place in diff.rows, and how far
+  // it is scrolled past. Null when no rows are on show.
+  function topRow() {
+    if (!diff || display.length === 0) return null;
+    const position = Math.min(display.length - 1, Math.floor(scroller.scrollTop / ROW_HEIGHT));
+    return { row: display[position], offset: scroller.scrollTop - position * ROW_HEIGHT };
+  }
+
+  // Lists the rows to show and starts over at the top or, with `top` (as
+  // topRow() gives it), at that row or the next one on show.
+  function list(top) {
     display = [];
     diff.rows.forEach((row, index) => {
       if (!onlyDifferences || row.type !== 'equal') display.push(index);
     });
     findMatches();
     rowsEl.style.height = `${display.length * ROW_HEIGHT + TAIL}px`;
-    scroller.scrollTop = 0;
+    let position = top ? display.findIndex((index) => index >= top.row) : 0;
+    if (position < 0) position = display.length;
+    scroller.scrollTop = top ? position * ROW_HEIGHT + top.offset : 0;
     rendered = null;
     fit();
   }
@@ -255,11 +266,15 @@ function createTableView(root) {
   }
 
   // Shows one entry of TableDiff.compare() and returns its number of runs of
-  // differing rows. The view has to be visible.
-  function show(nextDiff, only) {
+  // differing rows. The view has to be visible. With `keep` it is the sheets
+  // on show compared again, with other options: the row at the top stays
+  // there, and the difference gone to stays the current one.
+  function show(nextDiff, only, keep = false) {
+    const top = keep ? topRow() : null;
+    const wasAt = keep && currentBlock >= 0 ? diff.rows[blocks[currentBlock].row] : null;
+    if (top) top.row = DiffEngine.sameRow(nextDiff.rows, diff.rows[top.row]);
     diff = nextDiff;
     onlyDifferences = only;
-    currentBlock = -1;
     blocks = [];
     let differing = 0;
     let previousType = 'equal';
@@ -275,23 +290,39 @@ function createTableView(root) {
     root.style.setProperty('--grid-gutter', `${Math.max(52, 22 + String(lastRow).length * 8)}px`);
     measureColumns();
     for (const bar of bars) bar.firstElementChild.style.width = `${offsets[offsets.length - 1]}px`;
-    scrollX = 0;
-    list();
+    currentBlock = DiffEngine.runAt(
+      blocks.map((block) => block.row),
+      DiffEngine.sameRow(diff.rows, wasAt)
+    );
+    if (!top) scrollX = 0;
+    list(top && top.row >= 0 ? top : null);
     return blocks.length;
   }
 
+  // The difference gone to stays in view; without one, the row at the top
+  // stays there.
   function setOnlyDifferences(only) {
     if (only === onlyDifferences) return;
+    const top = topRow();
     onlyDifferences = only;
     if (!diff) return;
-    list();
-    if (currentBlock >= 0) reveal(blocks[currentBlock]);
+    if (currentBlock >= 0) {
+      list();
+      reveal(blocks[currentBlock]);
+    } else {
+      list(top);
+    }
   }
 
   function goTo(block) {
     currentBlock = block;
     reveal(blocks[block]);
     render(true);
+  }
+
+  // Takes note of the run gone to while the view is out of sight.
+  function mark(block) {
+    currentBlock = block;
   }
 
   // Marks the cells that contain `text`, whatever its case, and returns how
@@ -347,5 +378,18 @@ function createTableView(root) {
     { passive: false }
   );
 
-  return { show, setOnlyDifferences, goTo, clear, search, goToMatch, searchState };
+  return {
+    show,
+    setOnlyDifferences,
+    goTo,
+    mark,
+    clear,
+    search,
+    goToMatch,
+    searchState,
+    // The run of differing rows gone to last, or -1.
+    get currentBlock() {
+      return currentBlock;
+    },
+  };
 }

@@ -261,6 +261,32 @@
     return hidden;
   }
 
+  // The line a row shows on one side, or null: rows of texts and code have
+  // it as { num }, rows of tables as an index, -1 for none.
+  function lineOf(row, side) {
+    const line = row[side];
+    if (typeof line === 'number') return line >= 0 ? line : null;
+    return line ? line.num : null;
+  }
+
+  // The row among `rows` that shows the same line as `row`, a row of another
+  // comparison of the same two texts or tables — one made with other
+  // options, say. Goes by the row's line of the original or, where it has
+  // none, of the changed version. -1 when there is no such row.
+  function sameRow(rows, row) {
+    if (!row) return -1;
+    const side = lineOf(row, 'left') === null ? 'right' : 'left';
+    const line = lineOf(row, side);
+    return rows.findIndex((other) => lineOf(other, side) === line);
+  }
+
+  // Of the runs of differing rows that start at the rows `starts`, the last
+  // to start at or before `row`: the one a reader at that row is at or has
+  // just passed. -1 before the first.
+  function runAt(starts, row) {
+    return starts.findLastIndex((start) => start <= row);
+  }
+
   // The code comparison (code-diff.js) shares the rest.
-  return { compare, hiddenRows, diffWords, lineKey, partsInOrder, DIFF_TIMEOUT };
+  return { compare, hiddenRows, sameRow, runAt, diffWords, lineKey, partsInOrder, DIFF_TIMEOUT };
 });

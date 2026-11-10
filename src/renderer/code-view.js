@@ -103,8 +103,12 @@ function createCodeView(root, { onRender } = {}) {
     return line && content.contains(line) ? { row: line.dataset.row, offset: line.getBoundingClientRect().top - box.top } : null;
   }
 
+  // A line that is folded away now makes way for the next one on show.
   function restore(place) {
-    const line = place && content.querySelector(`.ln[data-row="${place.row}"]`);
+    if (!place || place.row < 0) return;
+    let row = Number(place.row);
+    while (row < shown.length - 1 && !shown[row]) row++;
+    const line = content.querySelector(`.ln[data-row="${row}"]`);
     if (line) scroller.scrollTop += line.getBoundingClientRect().top - scroller.getBoundingClientRect().top - place.offset;
   }
 
@@ -226,12 +230,18 @@ function createCodeView(root, { onRender } = {}) {
   }
 
   // Shows a comparison; `nextNames` are the names of the files on each side.
-  function show(nextDiff, nextNames) {
+  // With `keep` it is the code on show compared again, with other options:
+  // the line at the top stays there, and the difference gone to stays the
+  // current one.
+  function show(nextDiff, nextNames, keep = false) {
+    const place = keep && diff ? anchor() : null;
+    const wasAt = keep && diff && currentBlock >= 0 ? diff.rows[diff.blocks[currentBlock]] : null;
+    if (place) place.row = DiffEngine.sameRow(nextDiff.rows, diff.rows[place.row]);
     diff = nextDiff;
     names = nextNames;
     initial = CodeDiff.initialShown(diff);
     shown = initial.slice();
-    currentBlock = -1;
+    currentBlock = DiffEngine.runAt(diff.blocks, DiffEngine.sameRow(diff.rows, wasAt));
     const texts = { left: diff.left.lines.join('\n'), right: diff.right.lines.join('\n') };
     const same =
       coloredFor && SIDES.every((side) => coloredFor.texts[side] === texts[side] && coloredFor.names[side] === names[side]);
@@ -243,7 +253,8 @@ function createCodeView(root, { onRender } = {}) {
     }
     renderHead();
     render();
-    scroller.scrollTop = 0;
+    if (place) restore(place);
+    else scroller.scrollTop = 0;
   }
 
   // 'split' or 'unified'. Returns whether that changed.
@@ -350,5 +361,18 @@ function createCodeView(root, { onRender } = {}) {
     restore(place);
   });
 
-  return { show, setLayout, goTo, clear, search, goToMatch, searchState, exportState };
+  return {
+    show,
+    setLayout,
+    goTo,
+    clear,
+    search,
+    goToMatch,
+    searchState,
+    exportState,
+    // The run of differing rows gone to last, or -1.
+    get currentBlock() {
+      return currentBlock;
+    },
+  };
 }

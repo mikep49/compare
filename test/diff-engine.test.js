@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { compare } = require('../src/renderer/diff-engine');
+const DiffEngine = require('../src/renderer/diff-engine');
+const { compare } = DiffEngine;
 
 const text = (side) => (side ? side.segments.map((s) => s.text).join('') : null);
 const highlighted = (side) => side.segments.filter((s) => s.changed).map((s) => s.text);
@@ -137,4 +138,34 @@ test('blank lines go with the paragraphs removed or added', () => {
     ['equal', 3, 'A', 1, 'A'],
     ['equal', 4, '', null, null],
   ]);
+});
+
+test('a line is found again in a comparison made with other options', () => {
+  const left = 'One\nTwo\nThree\nFour';
+  const right = 'One\nNew\nTWO\nThree\nfour';
+  const exact = compare(left, right).rows;
+  const loose = compare(left, right, { ignoreCase: true }).rows;
+  // By its line of the original, or of the changed text where it has none.
+  const four = exact.findIndex((row) => row.left?.num === 4);
+  assert.equal(loose[DiffEngine.sameRow(loose, exact[four])].left.num, 4);
+  const added = exact.findIndex((row) => !row.left);
+  assert.equal(loose[DiffEngine.sameRow(loose, exact[added])].right.num, exact[added].right.num);
+  assert.equal(DiffEngine.sameRow(loose, null), -1);
+  // Rows of tables have the lines as indexes, -1 for none.
+  const tableRows = [
+    { left: 0, right: 0 },
+    { left: -1, right: 1 },
+    { left: 1, right: 2 },
+  ];
+  assert.equal(DiffEngine.sameRow(tableRows, { left: 1, right: 5 }), 2);
+  assert.equal(DiffEngine.sameRow(tableRows, { left: -1, right: 1 }), 1);
+  assert.equal(DiffEngine.sameRow(tableRows, { left: 7, right: 7 }), -1);
+});
+
+test('the difference a row is at is the last to start at or before it', () => {
+  assert.equal(DiffEngine.runAt([2, 10, 30], 1), -1);
+  assert.equal(DiffEngine.runAt([2, 10, 30], 10), 1);
+  assert.equal(DiffEngine.runAt([2, 10, 30], 29), 1);
+  assert.equal(DiffEngine.runAt([2, 10, 30], 99), 2);
+  assert.equal(DiffEngine.runAt([2, 10, 30], -1), -1);
 });
