@@ -317,6 +317,10 @@
             <span></span>
           </div>
           <div class="diff-view" hidden></div>
+          <div class="diff-busy" role="status" hidden>
+            <span class="spinner"></span>
+            <span>Comparing…</span>
+          </div>
 
           <div class="code-view" hidden>
             <div class="code-head">
@@ -458,6 +462,7 @@
     <div id="message" class="toast" role="alert" hidden>
       <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
       <span></span>
+      <button id="message-action" class="btn ghost" hidden></button>
     </div>
 
     <script src="../../node_modules/diff/dist/diff.min.js"></script>

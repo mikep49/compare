@@ -10,6 +10,7 @@ const findBar = $('#find-bar');
 const findInput = $('#find-input');
 const findCount = $('#find-count');
 const messageEl = $('#message');
+const messageBtn = $('#message-action');
 const optCase = $('#opt-case');
 const optSpace = $('#opt-space');
 const optOnly = $('#opt-only');
@@ -105,6 +106,19 @@ const KINDS = {
 
 const MESSAGE_ICONS = { error: '#i-alert', info: '#i-info', success: '#i-check' };
 let messageTimer;
+// What the button of the message on show does, if it has one.
+let messageAction = null;
+
+// Texts longer than this, both sides together, are compared away from the
+// page, which shows that it's being done.
+const LONG_TEXT = 50000;
+// The lines of the text comparison come in chunks of this many; chunks out
+// of sight aren't laid out, which keeps long texts quick.
+const CHUNK_ROWS = 100;
+// How tall a line and a gap are, for the room a chunk takes before it has
+// been laid out.
+const CHUNK_LINE = 21;
+const GAP_HEIGHT = 24;
 
 // How compared documents and spreadsheets are shown: as lines of text or a
 // table ('plain'), or as they look ('look') when there's a Word file, PDF or
@@ -120,18 +134,64 @@ for (const kind of Object.keys(preferredView)) {
   }
 }
 
-// `kind` is error, info or success.
-function showMessage(text, kind = 'error', duration = 6000) {
+function hideMessage() {
+  clearTimeout(messageTimer);
+  messageEl.hidden = true;
+  messageAction = null;
+}
+
+// `kind` is error, info or success. With an `action`, { label, run }, the
+// message has a button that does it.
+function showMessage(text, kind = 'error', duration = 6000, action = null) {
   messageEl.querySelector('span').textContent = text;
   messageEl.querySelector('use').setAttribute('href', MESSAGE_ICONS[kind]);
   messageEl.dataset.kind = kind;
   messageEl.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  messageAction = action;
+  messageBtn.hidden = !action;
+  messageBtn.textContent = action ? action.label : '';
   messageEl.hidden = false;
   clearTimeout(messageTimer);
-  messageTimer = setTimeout(() => {
-    messageEl.hidden = true;
-  }, duration);
+  messageTimer = setTimeout(hideMessage, duration);
 }
+
+function runMessageAction() {
+  const action = messageAction;
+  hideMessage();
+  action.run();
+}
+
+messageBtn.addEventListener('click', runMessageAction);
+
+// Compares long texts in a worker, one pair at a time.
+const textDiffer = {
+  worker: null,
+  busy: false,
+  compare(left, right, options) {
+    this.cancel();
+    this.worker ??= new Worker('diff-worker.js');
+    this.busy = true;
+    return new Promise((resolve, reject) => {
+      this.worker.onmessage = (event) => {
+        this.busy = false;
+        resolve(event.data);
+      };
+      this.worker.onerror = (event) => {
+        event.preventDefault();
+        this.cancel();
+        reject(new Error(event.message));
+      };
+      this.worker.postMessage({ left, right, options });
+    });
+  },
+  // Calls off the comparison under way, if any.
+  cancel() {
+    if (!this.busy) return;
+    this.worker.terminate();
+    this.worker = null;
+    this.busy = false;
+  },
+};
 
 const fileName = (filePath) => filePath.split(/[\\/]/).pop();
 const stem = (name) => name.replace(/\.[^.]+$/, '');
@@ -282,6 +342,7 @@ function createWorkspace(kind) {
   const tableEl = find('.table-view');
   const sheetTabs = find('.sheet-tabs');
   const diffNote = find('.diff-note');
+  const busyEl = find('.diff-busy');
   const navigatorEl = find('.navigator');
   const positionEl = find('.position');
   const statsEl = find('.stats');
@@ -311,8 +372,14 @@ function createWorkspace(kind) {
   // and which one is current.
   let blockCount = 0;
   let currentBlock = -1;
-  // First row of each run in the text diff.
+  // First row of each run in the text diff, and where among the rows it is.
   let blocks = [];
+  let blockStarts = [];
+  // The rows of the text diff, in step with those of `textResult`.
+  let rowEls = [];
+  // Numbers the text comparisons, so that one that was called off or
+  // overtaken is dropped when it comes back from the worker.
+  let textJob = 0;
   // The text comparison on show, as DiffEngine.compare() returned it, or
   // the code comparison, as CodeDiff.compare() did.
   let textResult = null;
@@ -342,6 +409,9 @@ function createWorkspace(kind) {
       file: null,
       // The file being opened, by the number loadFile() gave it.
       loading: 0,
+      // What brings back the text that Clear took away, while that's on
+      // offer.
+      undo: null,
     };
     panes[side] = pane;
 
@@ -358,9 +428,10 @@ function createWorkspace(kind) {
     pane.detailsEl.style.positionAnchor = anchor;
     pane.infoBtn.popoverTargetElement = pane.detailsEl;
 
-    wireHead(head, side, () => setText(side, '', null));
+    wireHead(head, side, () => clearSide(side));
     // Text typed or pasted over a loaded file is no longer that file.
     pane.textarea.addEventListener('input', () => {
+      forgetCleared(side);
       if (pane.file) setFile(side, null);
       alignColumns(side);
     });
@@ -400,7 +471,28 @@ function createWorkspace(kind) {
     else runCompare();
   }
 
+  // A side that has something new can't have its cleared text back.
+  function forgetCleared(side) {
+    const pane = panes[side];
+    if (pane.undo && messageAction === pane.undo) hideMessage();
+    pane.undo = null;
+  }
+
+  // Empties a side. For a few seconds the message offers to undo that, as
+  // does Ctrl+Z.
+  function clearSide(side) {
+    const pane = panes[side];
+    const text = pane.textarea.value;
+    const { file } = pane;
+    setText(side, '', null);
+    if (text === '') return;
+    pane.undo = { label: 'Undo', run: () => setText(side, text, file) };
+    const what = file ? file.name : side === 'left' ? 'the original' : 'the changed version';
+    showMessage(`Cleared ${what}`, 'info', 8000, pane.undo);
+  }
+
   function setText(side, text, file) {
+    forgetCleared(side);
     panes[side].textarea.value = text;
     setFile(side, file);
     alignColumns(side);
@@ -445,8 +537,9 @@ function createWorkspace(kind) {
 
   // Shows the comparison as lines of text or a table or, when that's the
   // view asked for and there's a file to show, as the files look; code
-  // split or unified. Returns whether that changed.
-  function renderView() {
+  // split or unified. Returns whether that changed. With `keep` the files
+  // stay where they are, for when only the options changed.
+  function renderView(keep = false) {
     const look = Boolean(lookView) && comparing && preferredView[kind] === 'look' && hasDocument();
     // Shown as they look, the files are shown whole, with what didn't
     // change faded.
@@ -463,8 +556,9 @@ function createWorkspace(kind) {
     const shown = tableView ? sheetDiffs[activeSheet] : textResult;
     if (look && shown && lookShownFor !== shown) {
       lookShownFor = shown;
-      if (tableView) lookView.show(sheetInputs(shown), shown);
+      if (tableView) lookView.show(sheetInputs(shown), shown, keep);
       else lookView.show(docInputs(), shown.rows);
+      if (keep && currentBlock >= 0) lookView.goTo(currentBlock);
     }
     return changed;
   }
@@ -506,10 +600,11 @@ function createWorkspace(kind) {
         : `${currentBlock + 1} of ${blockCount}`;
   }
 
-  // Fills the navigator for a comparison with `count` runs of differing rows.
-  function showSummary(count, stats, unit, columnStats) {
+  // Fills the navigator for a comparison with `count` runs of differing
+  // rows; `current` is the one the reader is at, if any.
+  function showSummary(count, stats, unit, columnStats, current = -1) {
     blockCount = count;
-    currentBlock = -1;
+    currentBlock = current;
     renderStats(stats, unit, columnStats);
     renderPosition();
     navigatorEl.hidden = count === 0;
@@ -522,10 +617,11 @@ function createWorkspace(kind) {
   }
 
   // Stands in for a run of unchanged lines that "Differences only" leaves
-  // out; clicking it brings them back.
-  function gapRow(run) {
+  // out, from the row `first` on; clicking it brings them back.
+  function gapRow(run, first) {
     const row = document.createElement('div');
     row.className = 'row gap';
+    row.dataset.row = first;
     const button = document.createElement('button');
     button.className = 'gap-btn';
     button.title = 'Show these lines';
@@ -538,57 +634,169 @@ function createWorkspace(kind) {
     return { row, label: () => (button.textContent = `⋯ ${plural(run.length, 'unchanged line')}`) };
   }
 
-  function compareTexts(options) {
-    textResult = DiffEngine.compare(panes.left.textarea.value, panes.right.textarea.value, options);
+  // The row of the text diff from `index` on that is on show: the lines
+  // far from any difference aren't when only the differences are.
+  function rowOnShow(index) {
+    const onlyDiff = diffView.classList.contains('only-diff');
+    let i = Math.max(0, index);
+    while (i < rowEls.length - 1 && onlyDiff && rowEls[i].classList.contains('far')) i++;
+    return rowEls[i];
+  }
+
+  // The line at the top of the text diff and how far down it is, to keep
+  // it in place when the lines around it change. Null when the diff isn't
+  // on show.
+  function topLine() {
+    if (!textResult || diffView.hidden || rowEls.length === 0) return null;
+    const box = diffView.getBoundingClientRect();
+    const rowEl = document.elementFromPoint(box.left + 60, box.top + 1)?.closest('.row');
+    if (!rowEl || !diffView.contains(rowEl)) return null;
+    // A gap stands for the lines after it; the space above the first line
+    // for that line.
+    const el = rowOnShow(Number(rowEl.dataset.row ?? 0));
+    return { row: textResult.rows[rowEls.indexOf(el)], offset: el.getBoundingClientRect().top - box.top };
+  }
+
+  function restoreTopLine(place) {
+    const index = place ? DiffEngine.sameRow(textResult.rows, place.row) : -1;
+    if (index < 0) return;
+    const el = rowOnShow(index);
+    // Nothing on show from that line on: the end of the text is.
+    if (el.getClientRects().length === 0) diffView.scrollTop = diffView.scrollHeight;
+    else diffView.scrollTop += el.getBoundingClientRect().top - diffView.getBoundingClientRect().top - place.offset;
+  }
+
+  function setBusy(busy) {
+    busyEl.hidden = !busy;
+  }
+
+  // Compares the texts: short ones here and now, long ones in a worker,
+  // with a note that it's being done. With `keep` the reader stays where
+  // they are, for when only the options changed.
+  function compareTexts(options, keep) {
+    const left = panes.left.textarea.value;
+    const right = panes.right.textarea.value;
+    const job = ++textJob;
+    textDiffer.cancel();
+    if (left.length + right.length < LONG_TEXT) {
+      setBusy(false);
+      showTexts(DiffEngine.compare(left, right, options), keep);
+      return;
+    }
+    setBusy(true);
+    textDiffer
+      .compare(left, right, options)
+      // Without the worker the page compares them itself.
+      .catch(() => (job === textJob ? DiffEngine.compare(left, right, options) : null))
+      .then((result) => {
+        if (job !== textJob) return;
+        setBusy(false);
+        // Out of sight the views can't lay themselves out: sync() compares
+        // again once the workspace is back.
+        if (root.hidden) stale = true;
+        else showTexts(result, keep);
+      });
+  }
+
+  // Calls off the text comparison under way, if any.
+  function cancelCompare() {
+    textJob++;
+    textDiffer.cancel();
+    setBusy(false);
+  }
+
+  // Shows what DiffEngine.compare() made of the texts.
+  function showTexts(result, keep) {
+    // Where the reader is: the line at the top, and the difference gone to.
+    const top = keep ? topLine() : null;
+    const wasAt = keep && currentBlock >= 0 && textResult ? textResult.rows[blockStarts[currentBlock]] : null;
+
+    textResult = result;
     const { rows, stats } = textResult;
     const hidden = DiffEngine.hiddenRows(rows, CONTEXT);
 
-    const fragment = document.createDocumentFragment();
+    const chunks = [];
     const gaps = [];
+    let chunk = null;
+    // The lines and gaps of the chunk being filled: all its lines, and
+    // what is on show of it with only the differences.
+    let lines = 0;
+    let fewLines = 0;
+    let fewGaps = 0;
+    const closeChunk = () => {
+      if (!chunk) return;
+      chunk.style.setProperty('--all', `${lines * CHUNK_LINE}px`);
+      chunk.style.setProperty('--few', `${fewLines * CHUNK_LINE + fewGaps * GAP_HEIGHT}px`);
+      chunk = null;
+    };
     let run = null;
     blocks = [];
+    blockStarts = [];
+    rowEls = [];
     let previousType = 'equal';
     rows.forEach((row, index) => {
+      if (!chunk) {
+        chunk = document.createElement('div');
+        chunk.className = 'chunk';
+        chunks.push(chunk);
+        lines = 0;
+        fewLines = 0;
+        fewGaps = 0;
+      }
       const rowEl = document.createElement('div');
       rowEl.className = `row ${row.type}`;
+      rowEl.dataset.row = index;
       const spacing = row.type === 'equal';
       rowEl.append(...buildCell(row.left, 'l', spacing), ...buildCell(row.right, 'r', spacing));
       if (hidden[index]) {
         rowEl.classList.add('far');
         if (!run) {
           run = [];
-          const gap = gapRow(run);
+          const gap = gapRow(run, index);
           gaps.push(gap);
-          fragment.append(gap.row);
+          chunk.append(gap.row);
+          fewGaps++;
         }
         run.push(rowEl);
       } else {
         run = null;
+        fewLines++;
       }
-      if (row.type !== 'equal' && previousType === 'equal') blocks.push(rowEl);
+      if (row.type !== 'equal' && previousType === 'equal') {
+        blocks.push(rowEl);
+        blockStarts.push(index);
+      }
       previousType = row.type;
-      fragment.append(rowEl);
+      chunk.append(rowEl);
+      rowEls.push(rowEl);
+      if (++lines === CHUNK_ROWS) closeChunk();
     });
+    closeChunk();
     for (const gap of gaps) gap.label();
 
-    diffView.replaceChildren(spacerRow('lead'), fragment, spacerRow('tail'));
+    diffView.replaceChildren(spacerRow('lead'), ...chunks, spacerRow('tail'));
     diffView.scrollTop = 0;
     if (rows.length === 0) showNote('Nothing to compare yet — both sides are empty.', true);
     else if (blocks.length === 0) showNote('The two texts are identical.', false);
     else showNote('', false);
-    showSummary(blocks.length, stats, 'line');
+    const current = DiffEngine.runAt(blockStarts, DiffEngine.sameRow(rows, wasAt));
+    showSummary(blocks.length, stats, 'line', undefined, current);
+    if (current >= 0) blocks[current].classList.add('current');
+    renderView(keep);
+    restoreTopLine(top);
+    refreshFind();
   }
 
-  function compareCode(options) {
+  function compareCode(options, keep) {
     const [left, right] = SIDES.map((side) => panes[side].textarea.value);
     codeResult = CodeDiff.compare(left, right, options);
     codeView.setLayout(preferredView[kind] === 'look' ? 'unified' : 'split');
-    codeView.show(codeResult, { left: panes.left.file?.name ?? '', right: panes.right.file?.name ?? '' });
+    codeView.show(codeResult, { left: panes.left.file?.name ?? '', right: panes.right.file?.name ?? '' }, keep);
     const { rows, blocks: codeBlocks, stats } = codeResult;
     if (rows.length === 0) showNote('Nothing to compare yet — both sides are empty.', true);
     else if (codeBlocks.length === 0) showNote('The two versions are identical.', false);
     else showNote('', false);
-    showSummary(codeBlocks.length, { removed: stats.deletions, added: stats.additions }, 'line');
+    showSummary(codeBlocks.length, { removed: stats.deletions, added: stats.additions }, 'line', undefined, codeView.currentBlock);
   }
 
   function renderTabs() {
@@ -623,7 +831,9 @@ function createWorkspace(kind) {
     );
   }
 
-  function showSheet(index) {
+  // With `keep` the reader stays where they are in the sheet, for when only
+  // the options changed.
+  function showSheet(index, keep = false) {
     activeSheet = index;
     [...sheetTabs.children].forEach((tab, i) => tab.setAttribute('aria-selected', String(i === index)));
     if (!sheetTabs.hidden) sheetTabs.children[index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -632,7 +842,7 @@ function createWorkspace(kind) {
     // A sheet without a counterpart is all removed or added rows; its columns
     // aren't counted on top of that.
     const columnStats = diff.left && diff.right ? diff.columnStats : {};
-    const count = tableView.show(diff, optOnly.checked);
+    const count = tableView.show(diff, optOnly.checked, keep);
     if (!sheetDiffs.some(differs)) {
       if (sheetDiffs.every((other) => other.rows.length === 0)) showNote('Nothing to compare yet — both sides are empty.', true);
       else showNote('No differences — both spreadsheets show the same values.', false);
@@ -647,8 +857,8 @@ function createWorkspace(kind) {
     } else {
       showNote('', false);
     }
-    showSummary(count, diff.stats, 'row', columnStats);
-    renderView();
+    showSummary(count, diff.stats, 'row', columnStats, tableView.currentBlock);
+    renderView(keep);
     refreshFind();
   }
 
@@ -662,25 +872,26 @@ function createWorkspace(kind) {
     const firstDifferent = sheetDiffs.findIndex(differs);
     const kept = keepSheet && activeSheet < sheetDiffs.length;
     renderTabs();
-    showSheet(kept ? activeSheet : Math.max(0, firstDifferent));
+    showSheet(kept ? activeSheet : Math.max(0, firstDifferent), kept);
   }
 
   const optionsKey = () => `${optCase.checked}|${optSpace.checked}`;
 
-  // `keepSheet` stays on the sheet being looked at, for when only the options
-  // changed.
-  function runCompare(keepSheet = false) {
+  // `keep` stays on the sheet and at the place being looked at, for when
+  // only the options changed.
+  function runCompare(keep = false) {
     const options = { ignoreCase: optCase.checked, ignoreWhitespace: optSpace.checked };
     comparedWith = optionsKey();
     comparedOptions = options;
     stale = false;
     if (tableView) {
-      compareSheets(options, keepSheet);
-    } else {
-      if (codeView) compareCode(options);
-      else compareTexts(options);
+      compareSheets(options, keep);
+    } else if (codeView) {
+      compareCode(options, keep);
       renderView();
       refreshFind();
+    } else {
+      compareTexts(options, keep);
     }
   }
 
@@ -693,6 +904,7 @@ function createWorkspace(kind) {
       runCompare();
       return;
     }
+    cancelCompare();
     clearFind();
     renderView();
     diffView.replaceChildren();
@@ -704,6 +916,8 @@ function createWorkspace(kind) {
     showNote('', false);
     navigatorEl.hidden = true;
     blocks = [];
+    blockStarts = [];
+    rowEls = [];
     blockCount = 0;
     textResult = null;
     codeResult = null;
@@ -713,7 +927,11 @@ function createWorkspace(kind) {
   // Brings the comparison up to date with its texts and the option switches;
   // either may have changed while another workspace was on show.
   function sync() {
+    // The line at the top stays there when the lines far from any
+    // difference come or go.
+    const top = diffView.classList.contains('only-diff') === optOnly.checked ? null : topLine();
     diffView.classList.toggle('only-diff', optOnly.checked);
+    restoreTopLine(top);
     if (comparing && stale) runCompare();
     else if (comparing && comparedWith !== optionsKey()) runCompare(true);
     // The view asked for may have changed: what was gone to stays in view.
@@ -732,6 +950,8 @@ function createWorkspace(kind) {
       if (previous >= 0) blocks[previous].classList.remove('current');
       blocks[currentBlock].classList.add('current');
     }
+    // So does the table while the sheets are on show as they look.
+    if (tableView && showingLook) tableView.mark(currentBlock);
     revealBlock();
     renderPosition();
   }
@@ -757,7 +977,7 @@ function createWorkspace(kind) {
   // The text of each line on show, both sides in turn, searched for `query`.
   function textMatches(query) {
     const hideFar = diffView.classList.contains('only-diff');
-    const rowsOnShow = [...diffView.children].filter((rowEl) => !(hideFar && rowEl.classList.contains('far')));
+    const rowsOnShow = rowEls.filter((rowEl) => !(hideFar && rowEl.classList.contains('far')));
     return FindText.ranges(
       rowsOnShow.flatMap((rowEl) => [...rowEl.querySelectorAll('.cell')]),
       query
@@ -1376,6 +1596,10 @@ document.addEventListener('keydown', (event) => {
   } else if (event.key === 'Escape' && !findBar.hidden) {
     event.preventDefault();
     closeFind();
+  } else if (event.ctrlKey && key === 'z' && messageAction) {
+    // Takes back what the message offers to undo, such as Clear.
+    event.preventDefault();
+    runMessageAction();
   } else if (event.ctrlKey && key === 'b') {
     event.preventDefault();
     toggleSidebar();

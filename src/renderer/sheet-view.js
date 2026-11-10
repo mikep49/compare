@@ -791,8 +791,9 @@ function createSheetView(root) {
 
   // Shows a pair of sheets: `inputs` has, per side, the `sheet` and its
   // `look`, either of which may be null. `nextDiff` is the entry of
-  // TableDiff.compare() for them.
-  function show(inputs, nextDiff) {
+  // TableDiff.compare() for them. With `keep` a sheet that was on show
+  // already stays where it is scrolled to.
+  function show(inputs, nextDiff, keep = false) {
     diff = nextDiff;
     current = -1;
     matches = [];
@@ -810,6 +811,8 @@ function createSheetView(root) {
     for (const name of SIDES) {
       const side = sides[name];
       const { sheet, look } = inputs[name];
+      const stays = keep && sheet && side.sheet === sheet;
+      const at = stays ? [side.scroller.scrollTop, side.scroller.scrollLeft] : [0, 0];
       Object.assign(side, { sheet, look: sheet ? look : null, values: sheet?.rows ?? [], found: new Map(), rendered: null });
       side.styles = side.look?.styles ?? PLAIN_STYLES;
       side.prefix = classesFor(side.styles);
@@ -823,7 +826,7 @@ function createSheetView(root) {
       setStatus(side, null);
       layOut(side);
       build(side);
-      scrollSide(side, 0, 0);
+      scrollSide(side, ...at);
     }
     dropStyleSheets(SIDES.map((name) => sides[name].styles));
     renderAll(true);

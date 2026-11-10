@@ -1057,6 +1057,20 @@ dd.copyable span {
   grid-template-columns: 52px minmax(0, 1fr) 52px minmax(0, 1fr);
 }
 
+/* The lines come a hundred to a chunk. Chunks out of sight are laid out
+   only once they come into view, which keeps long texts quick; until then
+   they take the room their lines would unwrapped (--all), or what is left
+   of them with only the differences on show (--few). */
+.chunk {
+  flex: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--all);
+}
+
+.only-diff .chunk {
+  contain-intrinsic-size: auto var(--few);
+}
+
 /* Half a line of space, so the first line doesn't sit against the frame. */
 .row.lead {
   height: 10px;
@@ -2502,7 +2516,15 @@ dd.copyable span {
 }
 
 .toast .icon {
+  flex: none;
   color: var(--removed);
+}
+
+.toast .btn {
+  flex: none;
+  margin: -4px -8px -4px 4px;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .toast[data-kind='info'] .icon {
@@ -2608,9 +2630,17 @@ dd.copyable span {
   font-size: 12px;
 }
 
-/* Shown over a side while its file is being read. */
+/* Shown over a side while its file is being read, and over the comparison
+   of long texts while it is being made. */
 
-.pane-loading {
+.diff-busy {
+  z-index: 1;
+  /* Quick comparisons are over before it shows. */
+  animation: fade-in 0.2s ease 0.25s both;
+}
+
+.pane-loading,
+.diff-busy {
   position: absolute;
   inset: 0;
   display: flex;

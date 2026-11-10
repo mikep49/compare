@@ -44,7 +44,7 @@ Compare shows two versions of something side by side and marks what changed. Thi
 
 Removed and changed text is marked in **red** on the original. Added and changed text is marked in **green** on the changed side. The bar at the bottom counts the changes, and its arrows take you from one change to the next.
 
-To change what's being compared, click **Edit texts**, **Edit tables** or **Edit code** (Ctrl+Enter again). **⇄** swaps the two sides and **Clear** empties one. The **ⓘ** button next to a file's name shows its details: its size and dates, and for Word files and PDFs their title, author, pages and so on.
+To change what's being compared, click **Edit texts**, **Edit tables** or **Edit code** (Ctrl+Enter again). **⇄** swaps the two sides and **Clear** empties one; for a few seconds after, **Undo** in the message or Ctrl+Z brings it back. The **ⓘ** button next to a file's name shows its details: its size and dates, and for Word files and PDFs their title, author, pages and so on.
 
 ## Opening files
 
