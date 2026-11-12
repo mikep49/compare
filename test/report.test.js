@@ -57,6 +57,37 @@ test('document patches preserve the final newline on each side', () => {
   }
 });
 
+test('document patches preserve whitespace-only line edits without changing the display comparison', () => {
+  const cases = [
+    ['a\n \nend\n', 'a\n\t\nend\n'],
+    ['old\n \nend\n', 'new\n\t\nend\n'],
+    [' \n', '\t\n'],
+    [' ', '\t'],
+    ['a\n ', 'a\n\t\n'],
+    ['\n\t\na\n  ', ' \n\na\n\t'],
+  ];
+  for (const options of [{}, { ignoreWhitespace: true }]) {
+    for (const [before, after] of cases) {
+      const comparison = DiffEngine.compare(before, after, options);
+      const patch = Report.textPatch({ rows: comparison.rows, leftName: 'old.txt', rightName: 'new.txt' });
+      assert.notEqual(patch, '', JSON.stringify([before, after]));
+      assert.equal(Diff.applyPatch(before, patch), after);
+      assert.equal(Diff.applyPatch(after, Diff.reversePatch(Diff.parsePatch(patch)[0])), before);
+      assert.equal(comparison.stats.changed, before.startsWith('old') ? 1 : 0);
+    }
+  }
+});
+
+test('document patches use exact contents even when display options ignore changes', () => {
+  const before = 'Title\n  some words\n';
+  const after = 'TITLE\nsome  words\n';
+  const comparison = DiffEngine.compare(before, after, { ignoreCase: true, ignoreWhitespace: true });
+  assert.equal(comparison.stats.changed, 0);
+  const patch = Report.textPatch({ rows: comparison.rows, leftName: 'old.txt', rightName: 'new.txt' });
+  assert.notEqual(patch, '');
+  assert.equal(Diff.applyPatch(before, patch), after);
+});
+
 test('document patches mark missing newlines on changed and context lines', () => {
   const patch = (before, after) => Report.textPatch({
     rows: DiffEngine.compare(before, after).rows,
