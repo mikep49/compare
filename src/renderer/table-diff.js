@@ -20,7 +20,6 @@
   // Sheets with next to nothing in common can take very long to line up row
   // by row; past this many milliseconds their rows are compared by position.
   const DIFF_TIMEOUT = 3000;
-  const KEY_SEPARATOR = '\u001f';
   const EMPTY_SHEET = { name: '', rows: [] };
 
   function cellKey(text, opts) {
@@ -125,7 +124,8 @@
       added: columns.filter((column) => column.left < 0).length,
     };
 
-    const rowKey = (row, side) => sharedColumns.map((column) => row[column[side]] ?? '').join(KEY_SEPARATOR);
+    // Encode cell boundaries so characters inside cells cannot make different rows share a key.
+    const rowKey = (row, side) => JSON.stringify(sharedColumns.map((column) => row[column[side]] ?? ''));
     const similarity = (leftRow, rightRow) => {
       let filled = 0;
       let same = 0;
