@@ -27,12 +27,16 @@
   // DiffEngine.compare(). Empty when nothing differs. Unlike the comparison,
   // it has the blank lines only one side has, so that it turns the original
   // into the changed text exactly.
-  const bothSides = (row) => Boolean(row.left && row.right);
+  const patchEqual = (row) => row.type === 'equal' && row.left && row.right && row.left.noEol === row.right.noEol;
+  const patchLine = (prefix, side) => [
+    `${prefix}${lineText(side)}`,
+    ...(side.noEol ? ['\\ No newline at end of file'] : []),
+  ];
 
   function textPatch({ rows, leftName, rightName }) {
     const runs = [];
     rows.forEach((row, index) => {
-      if (row.type === 'equal' && bothSides(row)) return;
+      if (patchEqual(row)) return;
       const last = runs[runs.length - 1];
       if (last && index - last.end <= 2 * CONTEXT + 1) last.end = index;
       else runs.push({ start: index, end: index });
@@ -61,13 +65,13 @@
         added = [];
       };
       for (const row of hunk) {
-        if (row.type === 'equal' && bothSides(row)) {
+        if (patchEqual(row)) {
           flush();
-          lines.push(` ${lineText(row.left)}`);
+          lines.push(...patchLine(' ', row.left));
           continue;
         }
-        if (row.left) removed.push(`-${lineText(row.left)}`);
-        if (row.right) added.push(`+${lineText(row.right)}`);
+        if (row.left) removed.push(...patchLine('-', row.left));
+        if (row.right) added.push(...patchLine('+', row.right));
       }
       flush();
     }

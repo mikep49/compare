@@ -30,6 +30,47 @@ test('a patch of identical texts is empty, and an empty side starts at line 0', 
   assert.match(patch, /@@ -0,0 \+1,2 @@\n\+a\n\+b\n$/);
 });
 
+test('document patches preserve the final newline on each side', () => {
+  const cases = [
+    ['old\n', 'new'],
+    ['old', 'new\n'],
+    ['old', 'new'],
+    ['same\n', 'same'],
+    ['same', 'same\n'],
+    ['', 'new'],
+    ['old', ''],
+    ['\n', ''],
+    ['', '\n'],
+    ['a\n\n', 'a\n'],
+    ['a\n', 'a\n\n'],
+    ['a\n ', 'a\n'],
+    ['a\n', 'a\n '],
+    ['old\nunchanged', 'new\nunchanged'],
+    [`${lines(20).join('\n')}\n`, lines(20).join('\n')],
+  ];
+  for (const [before, after] of cases) {
+    const { rows } = DiffEngine.compare(before, after);
+    const patch = Report.textPatch({ rows, leftName: 'old.txt', rightName: 'new.txt' });
+    assert.notEqual(patch, '', JSON.stringify([before, after]));
+    assert.equal(Diff.applyPatch(before, patch), after, JSON.stringify([before, after]));
+    assert.equal(Diff.applyPatch(after, Diff.reversePatch(Diff.parsePatch(patch)[0])), before, 'the reverse patch must restore the original');
+  }
+});
+
+test('document patches mark missing newlines on changed and context lines', () => {
+  const patch = (before, after) => Report.textPatch({
+    rows: DiffEngine.compare(before, after).rows,
+    leftName: 'old.txt',
+    rightName: 'new.txt',
+  });
+  assert.match(patch('old\n', 'new'), /-old\n\+new\n\\ No newline at end of file\n$/);
+  assert.match(patch('old', 'new\n'), /-old\n\\ No newline at end of file\n\+new\n$/);
+  assert.match(patch('old', 'new'), /-old\n\\ No newline at end of file\n\+new\n\\ No newline at end of file\n$/);
+  assert.match(patch('old\nunchanged', 'new\nunchanged'), / unchanged\n\\ No newline at end of file\n$/);
+  assert.equal(patch('same', 'same'), '');
+  assert.equal(patch('', ''), '');
+});
+
 test('the text report escapes the texts and folds away unchanged lines when asked', () => {
   const left = [...lines(30), '<b>bold & "quoted"</b>'];
   const right = [...lines(30), '<b>bold & "changed"</b>'];
