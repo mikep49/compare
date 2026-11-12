@@ -28,6 +28,17 @@ test('a changed cell marks its row and names the cell', () => {
   assert.deepEqual(summary(diff)[2], ['changed', 2, 2, [1]]);
 });
 
+test('separator characters in cells do not hide differences between rows', () => {
+  const left = [['First', 'Second'], ['a\u001fb', 'c']];
+  const right = [['First', 'Second'], ['a', 'b\u001fc']];
+  const diff = compareRows(left, right);
+  assert.deepEqual(summary(diff), [
+    ['equal', 0, 0, []],
+    ['changed', 1, 1, [0, 1]],
+  ]);
+  assert.deepEqual(diff.stats, { changed: 1, removed: 0, added: 0 });
+});
+
 test('inserted and deleted rows keep the rest aligned', () => {
   const right = [PEOPLE[0], PEOPLE[1], ['Eve', '9', 'Thun'], PEOPLE[2], PEOPLE[4]];
   const diff = compareRows(PEOPLE, right);
