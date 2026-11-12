@@ -8,10 +8,12 @@ const CodeLanguages = require('../src/code-languages');
 // Run the renderer's file-opening code without Electron or a DOM.
 const app = fs.readFileSync(path.join(__dirname, '../src/renderer/app.js'), 'utf8');
 const opening = app.slice(app.indexOf('const loads ='), app.indexOf('function openPaths('));
+const sheetFile = vm.runInNewContext(app.match(/^const SHEET_FILE = (.+);$/m)[1]);
 
 function setup() {
   const pending = new Map();
   const messages = [];
+  const parseOptions = new Map();
   const workspaces = Object.fromEntries(
     ['docs', 'sheets', 'code', 'files'].map((kind) => {
       const panes = { left: { text: '', loading: 0 }, right: { text: '', loading: 0 } };
@@ -32,12 +34,13 @@ function setup() {
     workspaces,
     active: workspaces.docs,
     CodeLanguages,
-    SHEET_FILE: /\.(xlsx|csv)$/i,
+    SHEET_FILE: sheetFile,
     activate(kind) { context.active = workspaces[kind]; },
     showMessage(message) { messages.push(message); },
     window: {
       compareApi: {
-        parseFile(file) {
+        parseFile(file, options) {
+          parseOptions.set(file.name, options);
           return new Promise((resolve, reject) => pending.set(file.name, { resolve, reject }));
         },
       },
@@ -47,6 +50,7 @@ function setup() {
   return {
     workspaces,
     messages,
+    parseOptions,
     activate: context.activate,
     open: (side, name, options) => context.loadFile(side, { name }, options),
     finish: (name, result) => pending.get(name).resolve({ ok: true, text: name, ...result }),
@@ -88,6 +92,68 @@ test('Explorer loads use their own workspace counters, including spreadsheets', 
   assert.equal(app.workspaces.docs.panes.left.file.name, 'report.docx');
   assert.equal(app.workspaces.sheets.panes.left.file.name, 'costs.xlsx');
   assert.equal(app.workspaces.code.panes.left.file.name, 'script.js');
+});
+
+for (const side of ['left', 'right']) {
+  for (const newerFirst of [false, true]) {
+    for (const { origin, destination, ext, result } of [
+      { origin: 'docs', destination: 'sheets', ext: 'xlsx', result: { sheets: [{ name: 'Data', rows: [] }] } },
+      { origin: 'code', destination: 'docs', ext: 'docx', result: { source: { kind: 'docx' } } },
+      { origin: 'docs', destination: 'sheets', ext: 'csv', result: { sheets: [{ name: '', rows: [] }] } },
+    ]) {
+      test(`${side}: routed ${ext} load cannot replace a newer selection (${newerFirst ? 'newer' : 'older'} finishes first)`, async () => {
+        const app = setup();
+        const oldName = `older.${ext}`;
+        const newName = `newer.${ext}`;
+        app.activate(origin);
+        const older = app.open(side, oldName);
+        app.activate(destination);
+        const newer = app.open(side, newName);
+        const pane = app.workspaces[destination].panes[side];
+        if (newerFirst) {
+          app.finish(newName, result);
+          await newer;
+          app.finish(oldName, result);
+          await older;
+        } else {
+          app.finish(oldName, result);
+          await older;
+          assert.equal(pane.text, '', 'the obsolete result must not appear while the new file is loading');
+          assert.notEqual(pane.loading, 0);
+          app.finish(newName, result);
+          await newer;
+        }
+        assert.equal(pane.file.name, newName);
+        assert.equal(pane.loading, 0);
+        assert.equal(app.workspaces[origin].panes[side].loading, 0);
+      });
+    }
+  }
+}
+
+test('delimited files opened as code stay plain text in the code workspace', async () => {
+  for (const ext of ['csv', 'tsv', 'tab']) {
+    const app = setup();
+    app.activate('code');
+    const name = `source.${ext}`;
+    const loading = app.open('left', name);
+    assert.equal(app.parseOptions.get(name).code, true);
+    assert.equal(app.parseOptions.get(name).table, false);
+    app.finish(name, { text: 'a,b\n1,2' });
+    await loading;
+    assert.equal(app.workspaces.code.panes.left.file.name, name);
+    assert.equal(app.workspaces.sheets.panes.left.text, '');
+  }
+});
+
+test('plain text opened in spreadsheets is still parsed as a table', async () => {
+  const app = setup();
+  app.activate('sheets');
+  const loading = app.open('left', 'data.txt');
+  assert.equal(app.parseOptions.get('data.txt').table, true);
+  app.finish('data.txt', { sheets: [{ name: '', rows: [['a', 'b']] }] });
+  await loading;
+  assert.equal(app.workspaces.sheets.panes.left.file.name, 'data.txt');
 });
 
 test('left and right loads in one workspace finish independently', async () => {

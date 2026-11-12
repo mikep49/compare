@@ -1355,8 +1355,8 @@ function toggleComparing() {
 // their checksums compared instead. Without a `side` a file takes the first
 // free side.
 
-// Counts the files opened in each workspace and side, so that a slow one
-// doesn't land on top of one opened after it in the same pane.
+// Counts the files opened in each destination workspace and side, so that a
+// slow one doesn't land on top of one opened after it in the same pane.
 const loads = Object.fromEntries(Object.keys(workspaces).map((kind) => [kind, { left: 0, right: 0 }]));
 
 async function loadFile(side, file, { fromExplorer = false } = {}) {
@@ -1368,6 +1368,11 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
     active.load(side, file);
     return;
   }
+  // Route before reserving a pane: a workbook dropped in Documents and one
+  // opened in Spreadsheets must share the same loading counter. Delimited
+  // files deliberately remain plain text when opened in Code.
+  if (/\.(docx|pdf)$/i.test(file.name)) from = 'docs';
+  else if (SHEET_FILE.test(file.name) && !(from === 'code' && /\.(csv|tsv|tab)$/i.test(file.name))) from = 'sheets';
   const origin = workspaces[from];
   // So that the file can be seen opening.
   if (origin !== active) activate(from);

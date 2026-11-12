@@ -27,7 +27,10 @@
   // DiffEngine.compare(). Empty when nothing differs. Unlike the comparison,
   // it has the blank lines only one side has, so that it turns the original
   // into the changed text exactly.
-  const patchEqual = (row) => row.type === 'equal' && row.left && row.right && row.left.noEol === row.right.noEol;
+  // Display equality can ignore blank-line whitespace, case or spacing.
+  // A patch must retain those edits to reproduce the target text exactly.
+  const patchEqual = (row) => row.type === 'equal' && row.left && row.right &&
+    row.left.noEol === row.right.noEol && lineText(row.left) === lineText(row.right);
   const patchLine = (prefix, side) => [
     `${prefix}${lineText(side)}`,
     ...(side.noEol ? ['\\ No newline at end of file'] : []),
