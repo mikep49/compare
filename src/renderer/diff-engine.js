@@ -20,10 +20,11 @@
   const TOKEN_RE = /\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
 
   function splitLines(text) {
-    if (text === '') return [];
+    if (text === '') return { lines: [], eol: true };
     const lines = text.split(/\r\n|\r|\n/);
-    if (lines[lines.length - 1] === '') lines.pop();
-    return lines;
+    const eol = lines[lines.length - 1] === '';
+    if (eol) lines.pop();
+    return { lines, eol };
   }
 
   function lineKey(line, opts) {
@@ -139,16 +140,20 @@
 
   // Lines the comparison puts side by side, as rows: { type, left, right },
   // with `type` one of equal, changed, removed and added, and each side
-  // { num, segments } or null. Only the lines with text on them are
-  // compared, so that paragraphs line up however many blank lines there are
-  // between them. The blank lines are put back, side by side, and never
+  // { num, segments, noEol } or null. `noEol` preserves a missing final
+  // newline for patch exports; it does not affect the display comparison.
+  // Only the lines with text on them are compared, so that paragraphs line
+  // up however many blank lines there are between them. The blank lines
+  // are put back, side by side, and never
   // count as differences: where one side has fewer of them, an equal row
   // has null on that side, which stays empty so that the lines after it
   // still line up.
   function compare(leftText, rightText, options) {
     const opts = { ignoreCase: false, ignoreWhitespace: false, ...options };
-    const leftLines = splitLines(leftText);
-    const rightLines = splitLines(rightText);
+    const left = splitLines(leftText);
+    const right = splitLines(rightText);
+    const leftLines = left.lines;
+    const rightLines = right.lines;
     // The indexes of the lines with text on them.
     const textLines = (lines) => lines.flatMap((line, i) => (isBlank(line) ? [] : [i]));
     const leftTexts = textLines(leftLines);
@@ -169,7 +174,11 @@
     let pendingRemoved = 0;
     let pendingAdded = 0;
 
-    const line = (lines, i) => ({ num: i + 1, segments: plain(lines[i]) });
+    const line = (side, i, segments = plain(side.lines[i])) => ({
+      num: i + 1,
+      segments,
+      noEol: !side.eol && i === side.lines.length - 1,
+    });
 
     // Shows the blank lines before the next row of text, on the sides it has
     // (`onLeft`, `onRight`). A side the row doesn't have shows as many of its
@@ -182,8 +191,8 @@
       for (let i = 0; i < count; i++) {
         rows.push({
           type: 'equal',
-          left: i < leftBlanks ? line(leftLines, l++) : null,
-          right: i < rightBlanks ? line(rightLines, r++) : null,
+          left: i < leftBlanks ? line(left, l++) : null,
+          right: i < rightBlanks ? line(right, r++) : null,
         });
       }
     };
@@ -197,8 +206,8 @@
         const words = diffWords(leftLines[l], rightLines[r], opts);
         rows.push({
           type: 'changed',
-          left: { num: l + 1, segments: words.left },
-          right: { num: r + 1, segments: words.right },
+          left: line(left, l, words.left),
+          right: line(right, r, words.right),
         });
         l++;
         r++;
@@ -207,12 +216,12 @@
       }
       for (let i = paired; i < pendingRemoved; i++) {
         space(true, false);
-        rows.push({ type: 'removed', left: line(leftLines, l++), right: null });
+        rows.push({ type: 'removed', left: line(left, l++), right: null });
         lt++;
       }
       for (let i = paired; i < pendingAdded; i++) {
         space(false, true);
-        rows.push({ type: 'added', left: null, right: line(rightLines, r++) });
+        rows.push({ type: 'added', left: null, right: line(right, r++) });
         rt++;
       }
       stats.changed += paired;
@@ -231,7 +240,7 @@
         flush();
         for (let i = 0; i < part.count; i++) {
           space(true, true);
-          rows.push({ type: 'equal', left: line(leftLines, l++), right: line(rightLines, r++) });
+          rows.push({ type: 'equal', left: line(left, l++), right: line(right, r++) });
           lt++;
           rt++;
         }
