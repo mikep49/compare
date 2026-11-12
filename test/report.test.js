@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Diff = require('diff');
 const DiffEngine = require('../src/renderer/diff-engine');
+const TableText = require('../src/table-text');
 const TableDiff = require('../src/renderer/table-diff');
 const CodeDiff = require('../src/renderer/code-diff');
 const CodeHtml = require('../src/renderer/code-html');
@@ -82,6 +83,61 @@ test('CSV fields with commas, quotes or line breaks are quoted', () => {
   const diffs = TableDiff.compare([{ name: '', rows: [['a, b']] }], [{ name: '', rows: [['say "hi"\nthere']] }]);
   const csv = Report.sheetCsv({ diffs });
   assert.match(csv, /,"a, b","say ""hi""\nthere"\r\n$/);
+});
+
+test('CSV exports formula-like cell values as quoted text on both sides', () => {
+  const values = [
+    '=1+1', '+1+1', '-1+1', '@SUM(1,1)', '-42',
+    '\t=1+1', '\r=1+1', '\n=1+1', '\ttext', '\rtext', '\ntext',
+    ' =1+1', ' \t+1+1', '\u0000=1+1', '\ufeff=1+1',
+    '\uff1d1+1', '\uff0b1+1', '\uff0d1+1', '\uff20SUM(1,1)',
+    '=HYPERLINK("https://example.invalid/?a=1,b=2","click")\r\nnext',
+  ];
+  for (const value of values) {
+    const sheet = (text) => [{ name: 'Data', rows: [['Key', 'Value'], ['item', text]] }];
+    const diffs = TableDiff.compare(sheet(value), sheet(`${value} changed`));
+    const changes = Report.sheetChanges(diffs);
+    const csv = Report.sheetCsv({ diffs });
+    assert.deepEqual(TableText.split(csv.slice(1), ',').slice(1), [
+      ['Data', 'Cell changed', 'B2', 'B2', `\t${value}`, `\t${value} changed`],
+    ], JSON.stringify(value));
+    assert.ok(csv.includes(',"\t'), 'the protective tab must be inside a quoted field');
+    assert.deepEqual(Report.sheetChanges(diffs), changes, 'export must not alter the comparison');
+    assert.equal(diffs[0].left.rows[1][1], value);
+    assert.equal(diffs[0].right.rows[1][1], `${value} changed`);
+  }
+});
+
+test('CSV protects formula-like sheet names, including added and removed sheets', () => {
+  for (const name of ['=1+1', '+1+1', '-1+1', '@SUM(1,1)']) {
+    const sheet = [{ name, rows: [['value']] }];
+    for (const [left, right, change] of [[sheet, [], 'Sheet removed'], [[], sheet, 'Sheet added']]) {
+      const csv = Report.sheetCsv({ diffs: TableDiff.compare(left, right) });
+      assert.deepEqual(TableText.split(csv.slice(1), ',').slice(1), [[`\t${name}`, change, '', '', '', '']]);
+      assert.ok(csv.includes('\r\n"\t'), 'sheet names must use the same quoted text protection');
+    }
+  }
+});
+
+test('CSV protects values in added and removed rows', () => {
+  const value = '=SUM(1,2)';
+  const empty = [{ name: 'Data', rows: [['Key', 'Value']] }];
+  const filled = [{ name: 'Data', rows: [['Key', 'Value'], ['item', value]] }];
+  const removed = Report.sheetCsv({ diffs: TableDiff.compare(filled, empty) });
+  const added = Report.sheetCsv({ diffs: TableDiff.compare(empty, filled) });
+  assert.deepEqual(TableText.split(removed.slice(1), ',').at(-1), ['Data', 'Row removed', 'B2', '', `\t${value}`, '']);
+  assert.deepEqual(TableText.split(added.slice(1), ',').at(-1), ['Data', 'Row added', '', 'B2', '', `\t${value}`]);
+});
+
+test('CSV leaves ordinary text, numbers and already escaped formulas unchanged', () => {
+  const values = ['', '123', 'plain text', "'=1+1", 'a,=1+1', 'a";=1+1', 'two\nlines', ' padded '];
+  for (const value of values) {
+    const sheet = (text) => [{ name: 'Data', rows: [['Key', 'Value'], ['item', text]] }];
+    const csv = Report.sheetCsv({ diffs: TableDiff.compare(sheet(value), sheet('replacement')) });
+    assert.deepEqual(TableText.split(csv.slice(1), ',').slice(1), [
+      ['Data', 'Cell changed', 'B2', 'B2', value, 'replacement'],
+    ], JSON.stringify(value));
+  }
 });
 
 test('hidden rows keep the context around each difference', () => {

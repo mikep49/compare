@@ -328,7 +328,14 @@ ${body.join('\n')}
 
   // The list of changes as CSV, which Excel opens as it is.
   function sheetCsv({ diffs }) {
-    const field = (text) => (/[",\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+    const field = (text) => {
+      // CSV quoting alone doesn't stop Excel from evaluating formulas. A tab
+      // inside the quoted field keeps them as text (including sheet names).
+      // Check past leading whitespace/controls and include full-width signs.
+      // https://owasp.org/www-community/attacks/CSV_Injection
+      const safe = /^[\s\x00-\x1f]*[=+\-@\uff1d\uff0b\uff0d\uff20]|^[\t\r\n]/.test(text) ? `\t${text}` : text;
+      return /[",\r\n]|^\s|\s$/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    };
     const lines = [['Sheet', 'Change', 'Original cell', 'Changed cell', 'Original value', 'Changed value']];
     for (const change of sheetChanges(diffs)) {
       lines.push([change.sheet, change.change, change.leftCell, change.rightCell, change.leftValue, change.rightValue]);
