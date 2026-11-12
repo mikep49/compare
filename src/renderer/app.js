@@ -1360,9 +1360,9 @@ function toggleComparing() {
 // their checksums compared instead. Without a `side` a file takes the first
 // free side.
 
-// Counts the files opened on each side, so that a slow one doesn't land on
-// top of one opened after it.
-const loads = { left: 0, right: 0 };
+// Counts the files opened in each workspace and side, so that a slow one
+// doesn't land on top of one opened after it in the same pane.
+const loads = Object.fromEntries(Object.keys(workspaces).map((kind) => [kind, { left: 0, right: 0 }]));
 
 async function loadFile(side, file, { fromExplorer = false } = {}) {
   let from = active.kind;
@@ -1377,7 +1377,7 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
   // So that the file can be seen opening.
   if (origin !== active) activate(from);
   side ??= origin.isEmpty('left') ? 'left' : 'right';
-  const load = ++loads[side];
+  const load = ++loads[from][side];
   origin.setLoading(side, file.name, load);
   let result;
   try {
@@ -1387,7 +1387,7 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
     result = { ok: false, error: error.message };
   }
   origin.setLoading(side, null, load);
-  if (load !== loads[side]) return;
+  if (load !== loads[from][side]) return;
   if (!result.ok) {
     if (fromExplorer && result.code === 'UNSUPPORTED') {
       workspaces.files.load(side, file);
