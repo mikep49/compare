@@ -163,36 +163,6 @@ function runMessageAction() {
 
 messageBtn.addEventListener('click', runMessageAction);
 
-// Compares long texts in a worker, one pair at a time.
-const textDiffer = {
-  worker: null,
-  busy: false,
-  compare(left, right, options) {
-    this.cancel();
-    this.worker ??= new Worker('diff-worker.js');
-    this.busy = true;
-    return new Promise((resolve, reject) => {
-      this.worker.onmessage = (event) => {
-        this.busy = false;
-        resolve(event.data);
-      };
-      this.worker.onerror = (event) => {
-        event.preventDefault();
-        this.cancel();
-        reject(new Error(event.message));
-      };
-      this.worker.postMessage({ left, right, options });
-    });
-  },
-  // Calls off the comparison under way, if any.
-  cancel() {
-    if (!this.busy) return;
-    this.worker.terminate();
-    this.worker = null;
-    this.busy = false;
-  },
-};
-
 const fileName = (filePath) => filePath.split(/[\\/]/).pop();
 const stem = (name) => name.replace(/\.[^.]+$/, '');
 
@@ -377,9 +347,11 @@ function createWorkspace(kind) {
   let blockStarts = [];
   // The rows of the text diff, in step with those of `textResult`.
   let rowEls = [];
-  // Numbers the text comparisons, so that one that was called off or
+  const differ = createDiffer();
+  let comparisonBusy = false;
+  // Numbers the comparisons, so that one that was called off or
   // overtaken is dropped when it comes back from the worker.
-  let textJob = 0;
+  let compareJob = 0;
   // The text comparison on show, as DiffEngine.compare() returned it, or
   // the code comparison, as CodeDiff.compare() did.
   let textResult = null;
@@ -667,7 +639,28 @@ function createWorkspace(kind) {
   }
 
   function setBusy(busy) {
+    comparisonBusy = busy;
     busyEl.hidden = !busy;
+  }
+
+  function compareInWorker(left, right, options, keep, show) {
+    const job = ++compareJob;
+    setBusy(true);
+    differ.compare(kind, left, right, options)
+      .then((result) => {
+        if (job !== compareJob || result === null) return;
+        setBusy(false);
+        // Out of sight the views can't lay themselves out: sync() compares
+        // again once the workspace is back.
+        if (root.hidden) stale = true;
+        else show(result, keep);
+      })
+      .catch((error) => {
+        if (job !== compareJob) return;
+        setComparing(false);
+        renderTopbar();
+        showMessage(`Couldn't compare: ${error.message}`);
+      });
   }
 
   // Compares the texts: short ones here and now, long ones in a worker,
@@ -676,32 +669,18 @@ function createWorkspace(kind) {
   function compareTexts(options, keep) {
     const left = panes.left.textarea.value;
     const right = panes.right.textarea.value;
-    const job = ++textJob;
-    textDiffer.cancel();
     if (left.length + right.length < LONG_TEXT) {
-      setBusy(false);
+      cancelCompare();
       showTexts(DiffEngine.compare(left, right, options), keep);
       return;
     }
-    setBusy(true);
-    textDiffer
-      .compare(left, right, options)
-      // Without the worker the page compares them itself.
-      .catch(() => (job === textJob ? DiffEngine.compare(left, right, options) : null))
-      .then((result) => {
-        if (job !== textJob) return;
-        setBusy(false);
-        // Out of sight the views can't lay themselves out: sync() compares
-        // again once the workspace is back.
-        if (root.hidden) stale = true;
-        else showTexts(result, keep);
-      });
+    compareInWorker(left, right, options, keep, showTexts);
   }
 
-  // Calls off the text comparison under way, if any.
+  // Calls off the comparison under way, if any.
   function cancelCompare() {
-    textJob++;
-    textDiffer.cancel();
+    compareJob++;
+    differ.cancel();
     setBusy(false);
   }
 
@@ -789,7 +768,11 @@ function createWorkspace(kind) {
 
   function compareCode(options, keep) {
     const [left, right] = SIDES.map((side) => panes[side].textarea.value);
-    codeResult = CodeDiff.compare(left, right, options);
+    compareInWorker(left, right, options, keep, showCode);
+  }
+
+  function showCode(result, keep) {
+    codeResult = result;
     codeView.setLayout(preferredView[kind] === 'look' ? 'unified' : 'split');
     codeView.show(codeResult, { left: panes.left.file?.name ?? '', right: panes.right.file?.name ?? '' }, keep);
     const { rows, blocks: codeBlocks, stats } = codeResult;
@@ -797,6 +780,8 @@ function createWorkspace(kind) {
     else if (codeBlocks.length === 0) showNote('The two versions are identical.', false);
     else showNote('', false);
     showSummary(codeBlocks.length, { removed: stats.deletions, added: stats.additions }, 'line', undefined, codeView.currentBlock);
+    renderView();
+    refreshFind();
   }
 
   function renderTabs() {
@@ -862,12 +847,24 @@ function createWorkspace(kind) {
     refreshFind();
   }
 
-  // A loaded file brings its sheets; cells typed or pasted are read from the
-  // text.
-  const sheetsOf = (pane) => pane.file?.sheets ?? TableText.toSheets(pane.textarea.value);
+  // A loaded file brings its sheets; pasted cells are parsed in the worker.
+  const sheetInput = (pane) => pane.file?.sheets ? { sheets: pane.file.sheets } : { text: pane.textarea.value };
 
   function compareSheets(options, keepSheet) {
-    sheetDiffs = TableDiff.compare(sheetsOf(panes.left), sheetsOf(panes.right), options);
+    const left = sheetInput(panes.left);
+    const right = sheetInput(panes.right);
+    compareInWorker(left, right, options, keepSheet, (diffs, keep) => {
+      // Keep each loaded sheet's identity for sheetInputs() and its styling.
+      for (const diff of diffs) {
+        if (left.sheets) diff.left = left.sheets[diff.leftIndex] ?? null;
+        if (right.sheets) diff.right = right.sheets[diff.rightIndex] ?? null;
+      }
+      showSheets(diffs, keep);
+    });
+  }
+
+  function showSheets(diffs, keepSheet) {
+    sheetDiffs = diffs;
     // Opens on the first sheet that has something to show.
     const firstDifferent = sheetDiffs.findIndex(differs);
     const kept = keepSheet && activeSheet < sheetDiffs.length;
@@ -888,8 +885,6 @@ function createWorkspace(kind) {
       compareSheets(options, keep);
     } else if (codeView) {
       compareCode(options, keep);
-      renderView();
-      refreshFind();
     } else {
       compareTexts(options, keep);
     }
@@ -1036,7 +1031,7 @@ function createWorkspace(kind) {
   // csv): { name, filters, content }. `empty` instead when there is nothing
   // to put in it.
   function exportResult(format) {
-    if (!comparing) return null;
+    if (!comparing || comparisonBusy) return null;
     const leftName = panes.left.file?.name ?? 'Original';
     const rightName = panes.right.file?.name ?? 'Changed';
     const base = panes.left.file || panes.right.file ? `${stem(leftName)} vs ${stem(rightName)}` : 'Comparison';

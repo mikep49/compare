@@ -2631,7 +2631,7 @@ dd.copyable span {
 }
 
 /* Shown over a side while its file is being read, and over the comparison
-   of long texts while it is being made. */
+   while it is being made in a worker. */
 
 .diff-busy {
   z-index: 1;
