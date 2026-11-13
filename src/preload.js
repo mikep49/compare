@@ -52,9 +52,11 @@ contextBridge.exposeInMainWorld('compareApi', {
   saveFile: (options) => ipcRenderer.invoke('save-file', options),
   copyText: (text) => ipcRenderer.send('copy-text', text),
   setTheme: (theme) => ipcRenderer.send('set-theme', theme),
+  getVersion: () => ipcRenderer.invoke('app-version'),
   // The update on offer, as { status, version, percent, manual }; see
   // updater.js. onUpdateState calls back whenever it changes.
   getUpdateState: () => ipcRenderer.invoke('update-state'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   onUpdateState: (callback) => ipcRenderer.on('update-state', (_event, state) => callback(state)),
   // Downloads the update, or restarts on it once downloaded. Returns
   // { ok, error }.

@@ -170,7 +170,7 @@ Compare remembers the folder you last saved to.
 
 ## Themes and dark pages
 
-The **Light**, **Dark** and **OLED** buttons at the top right change the app's colors. OLED is pure black. The first time, Compare follows your Windows setting.
+Open **Settings** at the bottom left to choose **Light**, **Dark** or **OLED** under Appearance. OLED is pure black. Your choice is remembered. The first time, Compare follows your Windows setting.
 
 The **moon** button at the bottom right of the Document and Sheet views shows pages dark, with their colors turned around. Click it again for light pages. Pictures in Word files keep their colors. A PDF page is drawn as a single picture, so photos in PDFs are turned around too.
 
@@ -184,7 +184,7 @@ Compare also remembers its window size and position, its zoom, and which workspa
 | F8 / Shift+F8 | Next / previous change |
 | Ctrl+F | Find |
 | Enter / Shift+Enter, F3 / Shift+F3 | Next / previous match |
-| Esc | Close the search bar |
+| Esc | Close Settings or the search bar |
 | Ctrl+S | Export |
 | Ctrl+1, Ctrl+2, Ctrl+3, Ctrl+4 | Documents, Spreadsheets, Code, Files |
 | Ctrl+B | Collapse or expand the sidebar |
@@ -194,6 +194,8 @@ Compare also remembers its window size and position, its zoom, and which workspa
 ## Updates
 
 When a new version of Compare is out, an **Update to x.x.x** button shows at the bottom left of the window. Compare checks for one when it starts, and every six hours while it's open.
+
+You can also open **Settings** at the bottom left to see your current version and click **Check for updates** at any time. Settings shows whether you're up to date, a new version is available, or the check couldn't finish. Available updates can be downloaded and applied from there too.
 
 1. **Click Update.** The new version downloads in the background, and you can go on working. The button shows how far the download has got.
 2. **Click Restart to update.** Compare closes and opens again on the new version. If you'd rather not restart now, just carry on: the update goes in when you close Compare.

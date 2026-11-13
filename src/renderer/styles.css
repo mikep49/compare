@@ -391,6 +391,197 @@ textarea {
   height: 18px;
 }
 
+.sidebar-workspaces {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  /* Keep the current workspace's mark at the window edge. */
+  margin-left: -8px;
+  padding-left: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.sidebar-footer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  padding: 8px 0 10px;
+  border-top: 1px solid var(--border);
+}
+
+#settings-btn {
+  anchor-name: --settings;
+}
+
+#settings-btn[aria-expanded='true'] {
+  background: var(--control);
+  color: var(--text);
+}
+
+#settings-btn[aria-expanded='true'] .icon {
+  color: var(--accent);
+}
+
+/* Settings opens above its sidebar button, including when collapsed. */
+.settings-panel {
+  position: fixed;
+  position-anchor: --settings;
+  inset: auto;
+  bottom: calc(anchor(top) + 8px);
+  left: anchor(left);
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 80px);
+  margin: 0;
+  padding: 20px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font: inherit;
+  -webkit-app-region: no-drag;
+}
+
+.settings-panel:popover-open {
+  animation: pop 0.16s ease-out;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -4px -4px 18px 0;
+}
+
+.settings-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.settings-section + .settings-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-section h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-section p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theme-options button {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+}
+
+.theme-options button:hover {
+  background: var(--control);
+  color: var(--text);
+}
+
+.theme-options button[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.theme-preview {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  padding: 8px 5px 5px 17px;
+  overflow: hidden;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 4px;
+  background: var(--preview-chrome);
+}
+
+.theme-preview > span {
+  flex: 1;
+  border-radius: 2px;
+  background: linear-gradient(to right, transparent 48%, var(--preview-chrome) 48% 52%, transparent 52%), var(--preview-surface);
+}
+
+[data-theme='light'] > .theme-preview {
+  --preview-chrome: #e6e6e9;
+  --preview-surface: #ffffff;
+}
+
+[data-theme='dark'] > .theme-preview {
+  --preview-chrome: #202020;
+  --preview-surface: #383838;
+}
+
+[data-theme='oled'] > .theme-preview {
+  --preview-chrome: #000000;
+  --preview-surface: #151515;
+}
+
+.theme-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.theme-label .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.settings-version {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  color: var(--muted);
+}
+
+#app-version {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#check-update-btn[aria-busy='true'] .icon {
+  animation: spin 1s linear infinite;
+}
+
 /* The update button, at the bottom of the sidebar. Laid out like the
    sidebar items, so collapsed it keeps just its icon. While downloading it
    fills up from the left as far as the download has got. */
@@ -400,7 +591,7 @@ textarea {
   align-items: center;
   gap: 12px;
   height: 38px;
-  margin: auto 0 10px;
+  margin: 0;
   padding: 0 11px;
   border: 0;
   border-radius: 7px;
@@ -463,6 +654,10 @@ textarea {
   .sidebar {
     transition: none;
   }
+
+  .settings-panel:popover-open {
+    animation: none;
+  }
 }
 
 /* Top bar: doubles as the window title bar, so it is a drag region and
@@ -495,8 +690,7 @@ textarea {
   opacity: 0.45;
 }
 
-/* The one part of the top bar that gives way when even the short theme
-   switch leaves too little room: its labels are cut short. */
+/* The option labels are cut short when the top bar runs out of room. */
 .topbar > .switches {
   flex: 0 1 auto;
   min-width: 0;
@@ -622,18 +816,7 @@ textarea {
   margin-left: 6px;
 }
 
-/* Too little room in the top bar for the names of the themes, and then for
-   those of the views. */
-@container topbar (max-width: 900px) {
-  #theme-switch span {
-    display: none;
-  }
-
-  #theme-switch button {
-    padding: 0 8px;
-  }
-}
-
+/* Too little room in the top bar for the names of the views. */
 @container topbar (max-width: 720px) {
   #view-switch span {
     display: none;

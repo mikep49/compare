@@ -30,6 +30,7 @@ let target = null;
 // percent), 'ready' or 'restarting'; manual is set when clicking opens the
 // release page.
 let state = { status: 'none' };
+let checking = null;
 
 function setState(changes) {
   state = { ...state, ...changes };
@@ -49,23 +50,40 @@ function clearOldDownloads() {
   }
 }
 
-async function check() {
-  // Once a download has begun, the release it came from stays.
-  if (!['none', 'available'].includes(state.status)) return;
+async function fetchLatest() {
   try {
     const response = await net.fetch(update.LATEST_RELEASE, {
       headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Compare/${app.getVersion()}` },
+      signal: AbortSignal.timeout(20000),
     });
-    if (!response.ok) return;
+    if (!response.ok) throw new Error(`GitHub answered ${response.status}.`);
     const latest = update.readRelease(await response.json());
-    if (!latest || !update.isNewer(latest.version, app.getVersion())) return;
-    if (!['none', 'available'].includes(state.status)) return;
-    release = latest;
-    asset = update.findAsset(latest, kind);
-    setState({ status: 'available', version: latest.version, manual: !asset });
+    if (!latest) throw new Error('GitHub did not return a valid release.');
+    // A download may have begun while the check was waiting for GitHub.
+    if (['none', 'available'].includes(state.status)) {
+      if (update.isNewer(latest.version, app.getVersion())) {
+        release = latest;
+        asset = update.findAsset(latest, kind);
+        setState({ status: 'available', version: latest.version, manual: !asset });
+      } else {
+        release = null;
+        asset = null;
+        setState({ status: 'none', version: null, manual: false });
+      }
+    }
+    return { ok: true, state };
   } catch {
-    // Offline, or GitHub didn't answer: ask again later.
+    // Background checks stay quiet; manual checks show this in Settings.
+    return { ok: false, error: "Couldn't check for updates. Check your internet connection and try again." };
   }
+}
+
+function check() {
+  // Once a download has begun, the release it came from stays.
+  if (!['none', 'available'].includes(state.status)) return Promise.resolve({ ok: true, state });
+  // Startup, scheduled and manual checks can share the same request.
+  if (!checking) checking = fetchLatest().finally(() => { checking = null; });
+  return checking;
 }
 
 // Downloads `asset` to `file`, telling `onProgress` the share done so far,
@@ -180,11 +198,7 @@ async function restart() {
 
 function startUpdater() {
   ipcMain.handle('update-state', () => state);
-  // Run from source with `npm start`, there's nothing to update.
-  if (!app.isPackaged) return;
-
-  kind = update.installKind({ env: process.env, execPath: process.execPath, exists: fs.existsSync });
-  clearOldDownloads();
+  ipcMain.handle('check-for-updates', check);
 
   ipcMain.handle('update', async () => {
     if (state.status === 'available' && state.manual) {
@@ -195,6 +209,12 @@ function startUpdater() {
     if (state.status === 'ready') return restart();
     return { ok: true };
   });
+
+  // Source builds can check manually and open the release page. Only
+  // packaged copies download updates and check automatically.
+  if (!app.isPackaged) return;
+  kind = update.installKind({ env: process.env, execPath: process.execPath, exists: fs.existsSync });
+  clearOldDownloads();
 
   // An update downloaded but not yet applied goes in now, without starting
   // the app again. Quitting waits the moment it takes to set off.

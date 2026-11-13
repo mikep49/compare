@@ -156,9 +156,13 @@
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
       </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24">
+        <path d="m9 3-.5 2a8 8 0 0 0-2 1.2L4.5 6 2 10l1.5 1.5a8 8 0 0 0 0 2L2 15l2.5 4 2-.2a8 8 0 0 0 2 1.2l.5 2h5l.5-2a8 8 0 0 0 2-1.2l2 .2 2.5-4-1.5-1.5a8 8 0 0 0 0-2L21 10l-2.5-4-2 .2a8 8 0 0 0-2-1.2L14 3z" />
+        <circle cx="11.5" cy="12.5" r="3" />
+      </symbol>
     </svg>
 
-    <nav id="sidebar" class="sidebar" aria-label="Kind of comparison">
+    <nav id="sidebar" class="sidebar" aria-label="Main navigation">
       <div class="sidebar-head">
         <button id="sidebar-toggle" class="btn ghost icon-btn" aria-controls="sidebar">
           <svg class="icon" aria-hidden="true"><use href="#i-sidebar" /></svg>
@@ -168,28 +172,75 @@
           <rect class="logo-front" x="13" y="4" width="8.5" height="16" rx="2.5" />
         </svg>
       </div>
-      <button class="sidebar-item" data-kind="docs" title="Documents: text, Word and PDF (Ctrl+1)">
-        <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
-        <span>Documents</span>
-      </button>
-      <button class="sidebar-item" data-kind="sheets" title="Spreadsheets: Excel, OpenDocument and CSV (Ctrl+2)">
-        <svg class="icon" aria-hidden="true"><use href="#i-table" /></svg>
-        <span>Spreadsheets</span>
-      </button>
-      <button class="sidebar-item" data-kind="code" title="Code: source code, compared as GitHub shows changes (Ctrl+3)">
-        <svg class="icon" aria-hidden="true"><use href="#i-code" /></svg>
-        <span>Code</span>
-      </button>
-      <button class="sidebar-item" data-kind="files" title="Files: any two files, checked by their SHA-256 checksums (Ctrl+4)">
-        <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
-        <span>Files</span>
-      </button>
-      <!-- Shown when a newer version is out; app.js names it. -->
-      <button id="update-btn" class="update-btn" hidden>
-        <svg class="icon" aria-hidden="true"><use href="#i-update" /></svg>
-        <span></span>
-      </button>
+      <div class="sidebar-workspaces">
+        <button class="sidebar-item" data-kind="docs" title="Documents: text, Word and PDF (Ctrl+1)">
+          <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
+          <span>Documents</span>
+        </button>
+        <button class="sidebar-item" data-kind="sheets" title="Spreadsheets: Excel, OpenDocument and CSV (Ctrl+2)">
+          <svg class="icon" aria-hidden="true"><use href="#i-table" /></svg>
+          <span>Spreadsheets</span>
+        </button>
+        <button class="sidebar-item" data-kind="code" title="Code: source code, compared as GitHub shows changes (Ctrl+3)">
+          <svg class="icon" aria-hidden="true"><use href="#i-code" /></svg>
+          <span>Code</span>
+        </button>
+        <button class="sidebar-item" data-kind="files" title="Files: any two files, checked by their SHA-256 checksums (Ctrl+4)">
+          <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
+          <span>Files</span>
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <!-- Shown when a newer version is out; app.js names it. -->
+        <button id="update-btn" class="update-btn" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-update" /></svg>
+          <span></span>
+        </button>
+        <button id="settings-btn" class="sidebar-item" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false" popovertarget="settings-panel">
+          <svg class="icon" aria-hidden="true"><use href="#i-settings" /></svg>
+          <span>Settings</span>
+        </button>
+      </div>
     </nav>
+
+    <div id="settings-panel" class="settings-panel" popover role="dialog" aria-labelledby="settings-title">
+      <div class="settings-head">
+        <h2 id="settings-title">Settings</h2>
+        <button class="btn ghost icon-btn" title="Close settings" aria-label="Close settings" popovertarget="settings-panel" popovertargetaction="hide" autofocus>
+          <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <section class="settings-section" aria-labelledby="appearance-title">
+        <h3 id="appearance-title">Appearance</h3>
+        <p>Choose your theme.</p>
+        <div id="theme-switch" class="theme-options" role="radiogroup" aria-label="Theme">
+          <button role="radio" data-theme="light" title="Light">
+            <span class="theme-preview" aria-hidden="true"><span></span></span>
+            <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-sun" /></svg>Light</span>
+          </button>
+          <button role="radio" data-theme="dark" title="Dark">
+            <span class="theme-preview" aria-hidden="true"><span></span></span>
+            <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-moon" /></svg>Dark</span>
+          </button>
+          <button role="radio" data-theme="oled" title="OLED black">
+            <span class="theme-preview" aria-hidden="true"><span></span></span>
+            <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-oled" /></svg>OLED</span>
+          </button>
+        </div>
+      </section>
+      <section class="settings-section" aria-labelledby="about-title">
+        <h3 id="about-title">About Compare</h3>
+        <div class="settings-version"><span>Version</span><span id="app-version">Loading…</span></div>
+        <p id="update-message" role="status" aria-live="polite">Compare checks for updates automatically.</p>
+        <div class="settings-actions">
+          <button id="check-update-btn" class="btn">
+            <svg class="icon" aria-hidden="true"><use href="#i-restart" /></svg>
+            <span>Check for updates</span>
+          </button>
+          <button id="settings-update-btn" class="btn primary" hidden></button>
+        </div>
+      </section>
+    </div>
 
     <header class="topbar">
       <button id="compare-btn" class="btn primary" title="Ctrl+Enter">
@@ -236,17 +287,6 @@
 
       <span class="spacer"></span>
 
-      <div id="theme-switch" class="segmented" role="radiogroup" aria-label="Theme">
-        <button role="radio" data-theme="light" title="Light">
-          <svg class="icon" aria-hidden="true"><use href="#i-sun" /></svg><span>Light</span>
-        </button>
-        <button role="radio" data-theme="dark" title="Dark">
-          <svg class="icon" aria-hidden="true"><use href="#i-moon" /></svg><span>Dark</span>
-        </button>
-        <button role="radio" data-theme="oled" title="OLED black">
-          <svg class="icon" aria-hidden="true"><use href="#i-oled" /></svg><span>OLED</span>
-        </button>
-      </div>
     </header>
 
     <!-- One workspace per kind of comparison; app.js makes a copy for each. -->
