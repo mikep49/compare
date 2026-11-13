@@ -18,7 +18,7 @@ const optOnlySwitch = $('#opt-only-switch');
 const viewSwitch = $('#view-switch');
 const viewButtons = [...viewSwitch.querySelectorAll('button')];
 const themeButtons = [...document.querySelectorAll('#theme-switch button')];
-const sidebarItems = [...document.querySelectorAll('.sidebar-item')];
+const sidebarItems = [...document.querySelectorAll('.sidebar-item[data-kind]')];
 const sidebarToggle = $('#sidebar-toggle');
 // The controls for comparing texts and tables; files have no use for them.
 const compareControls = [compareBtn, $('#swap-btn'), $('.switches')];
@@ -1505,7 +1505,9 @@ for (const item of exportMenu.querySelectorAll('button')) {
 
 function selectTheme(theme) {
   for (const button of themeButtons) {
-    button.setAttribute('aria-checked', String(button.dataset.theme === theme));
+    const selected = button.dataset.theme === theme;
+    button.setAttribute('aria-checked', String(selected));
+    button.tabIndex = selected ? 0 : -1;
   }
 }
 
@@ -1563,6 +1565,18 @@ for (const button of themeButtons) {
     localStorage.setItem('theme', theme);
     selectTheme(theme);
   });
+  button.addEventListener('keydown', (event) => {
+    const index = themeButtons.indexOf(button);
+    let next;
+    if (['ArrowRight', 'ArrowDown'].includes(event.key)) next = (index + 1) % themeButtons.length;
+    else if (['ArrowLeft', 'ArrowUp'].includes(event.key)) next = (index + themeButtons.length - 1) % themeButtons.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = themeButtons.length - 1;
+    else return;
+    event.preventDefault();
+    themeButtons[next].click();
+    themeButtons[next].focus();
+  });
 }
 selectTheme(document.documentElement.dataset.theme);
 
@@ -1593,6 +1607,9 @@ document.addEventListener('keydown', (event) => {
   } else if (event.ctrlKey && key === 's') {
     event.preventDefault();
     if (active.comparing) exportAs('html');
+  } else if (event.key === 'Escape' && settingsPanel.matches(':popover-open')) {
+    // Let the popover close itself and return focus to the Settings button.
+    return;
   } else if (event.key === 'Escape' && !findBar.hidden) {
     event.preventDefault();
     closeFind();
@@ -1670,7 +1687,21 @@ window.compareApi.onOpenPaths(openPaths);
 // The update button at the bottom of the sidebar, shown once a newer version
 // is out. See updater.js.
 const updateBtn = $('#update-btn');
+const settingsPanel = $('#settings-panel');
+const checkUpdateBtn = $('#check-update-btn');
+const settingsUpdateBtn = $('#settings-update-btn');
+const updateMessage = $('#update-message');
 let updateStatus = 'none';
+let checkingForUpdate = false;
+
+settingsPanel.addEventListener('toggle', (event) => {
+  $('#settings-btn').setAttribute('aria-expanded', String(event.newState === 'open'));
+});
+window.compareApi.getVersion().then((version) => {
+  $('#app-version').textContent = version;
+}).catch(() => {
+  $('#app-version').textContent = 'Unavailable';
+});
 
 function showUpdate({ status, version, percent = 0, manual }) {
   if (status === 'ready' && updateStatus === 'downloading') {
@@ -1688,8 +1719,23 @@ function showUpdate({ status, version, percent = 0, manual }) {
     restarting: ['#i-restart', 'Restarting…', `Restarting Compare on version ${version}`],
   }[status];
   updateBtn.hidden = !looks;
-  if (!looks) return;
+  settingsUpdateBtn.hidden = !looks;
+  const busy = status === 'downloading' || status === 'restarting';
+  checkUpdateBtn.disabled = checkingForUpdate || busy || status === 'ready';
+  settingsUpdateBtn.disabled = busy;
+  if (!looks) {
+    if (!checkingForUpdate) updateMessage.textContent = 'Compare checks for updates automatically.';
+    return;
+  }
   const [icon, label, title] = looks;
+  settingsUpdateBtn.textContent = status === 'available' && manual ? 'Open download page' : label;
+  settingsUpdateBtn.title = title;
+  updateMessage.textContent = {
+    available: `Compare ${version} is available.`,
+    downloading: `Downloading Compare ${version}: ${percent}%.`,
+    ready: `Compare ${version} is ready. Restart now, or it updates when you close Compare.`,
+    restarting: `Restarting Compare on version ${version}…`,
+  }[status];
   updateBtn.dataset.status = status;
   updateBtn.querySelector('use').setAttribute('href', icon);
   updateBtn.querySelector('span').textContent = label;
@@ -1697,12 +1743,42 @@ function showUpdate({ status, version, percent = 0, manual }) {
   updateBtn.style.setProperty('--progress', status === 'downloading' ? `${percent}%` : '100%');
 }
 
-updateBtn.addEventListener('click', async () => {
-  const result = await window.compareApi.update();
-  if (!result.ok) showMessage(result.error);
+async function runUpdate() {
+  try {
+    const result = await window.compareApi.update();
+    if (!result.ok) throw new Error(result.error);
+  } catch (error) {
+    updateMessage.textContent = error.message;
+    showMessage(error.message);
+  }
+}
+
+updateBtn.addEventListener('click', runUpdate);
+settingsUpdateBtn.addEventListener('click', runUpdate);
+checkUpdateBtn.addEventListener('click', async () => {
+  checkingForUpdate = true;
+  checkUpdateBtn.disabled = true;
+  checkUpdateBtn.setAttribute('aria-busy', 'true');
+  checkUpdateBtn.querySelector('span').textContent = 'Checking…';
+  updateMessage.textContent = 'Checking for updates…';
+  try {
+    const result = await window.compareApi.checkForUpdates();
+    if (!result.ok) throw new Error(result.error);
+    showUpdate(result.state);
+    if (result.state.status === 'none') updateMessage.textContent = "You're up to date.";
+  } catch (error) {
+    updateMessage.textContent = error.message;
+  } finally {
+    checkingForUpdate = false;
+    checkUpdateBtn.disabled = ['downloading', 'ready', 'restarting'].includes(updateStatus);
+    checkUpdateBtn.removeAttribute('aria-busy');
+    checkUpdateBtn.querySelector('span').textContent = 'Check for updates';
+  }
 });
 window.compareApi.onUpdateState(showUpdate);
-window.compareApi.getUpdateState().then(showUpdate);
+window.compareApi.getUpdateState().then(showUpdate).catch(() => {
+  updateMessage.textContent = 'Update information is unavailable. Try checking again.';
+});
 
 let savedWorkspace = null;
 try {

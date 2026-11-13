@@ -228,6 +228,7 @@ ipcMain.handle('hash-file', async (event, { id, ...file }) => {
 ipcMain.on('cancel-hash', (_event, id) => hashJobs.get(id)?.abort());
 
 ipcMain.handle('take-launch-paths', () => launchPaths.splice(0));
+ipcMain.handle('app-version', () => app.getVersion());
 
 // Saves an export where the user picks. `name` is the suggested file name,
 // `filters` the file types offered. Returns { ok, filePath } or, when the
