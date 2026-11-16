@@ -27,6 +27,9 @@ function setup() {
         setText(side, text, file) {
           Object.assign(panes[side], { text, file });
         },
+        showFileError(side, name, error) {
+          panes[side].error = { name, error };
+        },
       }];
     })
   );
@@ -201,5 +204,7 @@ test('a failed load still reports its error after a load in another workspace', 
   app.fail('report.docx');
   await document;
   assert.deepEqual(app.messages, ["Couldn't open report.docx: read failed"]);
+  assert.deepEqual(app.workspaces.docs.panes.left.error, { name: 'report.docx', error: 'read failed' });
   assert.equal(app.workspaces.docs.panes.left.loading, 0);
+  assert.equal(app.workspaces.code.panes.left.error, undefined);
 });

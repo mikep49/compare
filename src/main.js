@@ -255,15 +255,26 @@ ipcMain.on('zoom', (_event, direction) => {
   if (win && ['in', 'out', 'reset'].includes(direction)) zoom(direction);
 });
 
-ipcMain.on('set-theme', (event, name) => {
-  const owner = BrowserWindow.fromWebContents(event.sender);
-  if (!owner || !Object.hasOwn(THEMES, name)) return;
-  const theme = THEMES[name];
-  // Also switches the backdrop material between its light and dark variant.
-  nativeTheme.themeSource = theme.source;
+// The theme picked in Settings: one of THEMES, or 'system' for light or
+// dark as Windows is set.
+let themeChoice = 'system';
+
+// Matches the window chrome (backdrop, caption buttons) to the theme.
+function paintChrome(owner) {
+  const theme = THEMES[themeChoice] ?? (nativeTheme.shouldUseDarkColors ? THEMES.dark : THEMES.light);
   owner.setTitleBarOverlay({ color: '#00000000', symbolColor: theme.symbols });
   if (hasMaterial) owner.setBackgroundMaterial(theme.material);
   else owner.setBackgroundColor(theme.chrome);
+}
+
+ipcMain.on('set-theme', (event, name) => {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  if (!owner || (name !== 'system' && !Object.hasOwn(THEMES, name))) return;
+  themeChoice = name;
+  // Also switches the backdrop material between its light and dark variant.
+  // 'system' has it, and the page's prefers-color-scheme, follow Windows.
+  nativeTheme.themeSource = name === 'system' ? 'system' : THEMES[name].source;
+  paintChrome(owner);
 });
 
 // One window does: starting the app again hands its files to the one that's
@@ -284,6 +295,11 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     settings = loadSettings();
     Menu.setApplicationMenu(null);
+    // Windows switched between light and dark: with System picked, the
+    // window chrome follows. The page follows by itself.
+    nativeTheme.on('updated', () => {
+      if (themeChoice === 'system' && win && !win.isDestroyed()) paintChrome(win);
+    });
     createWindow();
     startUpdater();
   });
