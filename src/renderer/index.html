@@ -156,6 +156,13 @@
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
       </symbol>
+      <symbol id="i-options" viewBox="0 0 24 24">
+        <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" />
+      </symbol>
+      <symbol id="i-system" viewBox="0 0 24 24">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </symbol>
       <symbol id="i-settings" viewBox="0 0 24 24">
         <path d="m9 3-.5 2a8 8 0 0 0-2 1.2L4.5 6 2 10l1.5 1.5a8 8 0 0 0 0 2L2 15l2.5 4 2-.2a8 8 0 0 0 2 1.2l.5 2h5l.5-2a8 8 0 0 0 2-1.2l2 .2 2.5-4-1.5-1.5a8 8 0 0 0 0-2L21 10l-2.5-4-2 .2a8 8 0 0 0-2-1.2L14 3z" />
         <circle cx="11.5" cy="12.5" r="3" />
@@ -212,21 +219,38 @@
       </div>
       <section class="settings-section" aria-labelledby="appearance-title">
         <h3 id="appearance-title">Appearance</h3>
-        <p>Choose your theme.</p>
+        <p>Choose your theme. System follows Windows, light or dark.</p>
+        <!-- The previews take the colors of the themes they show; see the
+             theme colors in styles.css. -->
         <div id="theme-switch" class="theme-options" role="radiogroup" aria-label="Theme">
+          <button role="radio" data-theme="system" title="System: light or dark, as Windows is set">
+            <span class="theme-preview-pair" aria-hidden="true">
+              <span class="theme-preview" data-preview="light"><span></span></span>
+              <span class="theme-preview" data-preview="dark"><span></span></span>
+            </span>
+            <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-system" /></svg>System</span>
+          </button>
           <button role="radio" data-theme="light" title="Light">
-            <span class="theme-preview" aria-hidden="true"><span></span></span>
+            <span class="theme-preview" data-preview="light" aria-hidden="true"><span></span></span>
             <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-sun" /></svg>Light</span>
           </button>
           <button role="radio" data-theme="dark" title="Dark">
-            <span class="theme-preview" aria-hidden="true"><span></span></span>
+            <span class="theme-preview" data-preview="dark" aria-hidden="true"><span></span></span>
             <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-moon" /></svg>Dark</span>
           </button>
           <button role="radio" data-theme="oled" title="OLED black">
-            <span class="theme-preview" aria-hidden="true"><span></span></span>
+            <span class="theme-preview" data-preview="oled" aria-hidden="true"><span></span></span>
             <span class="theme-label"><svg class="icon" aria-hidden="true"><use href="#i-oled" /></svg>OLED</span>
           </button>
         </div>
+        <!-- The same as the moon button of the Document and Sheet views. -->
+        <label class="settings-toggle">
+          <span>
+            <strong id="paper-label">Dark pages</strong>
+            <span id="paper-hint">Shows the pages of the Document and Sheet views dark, their colors turned around.</span>
+          </span>
+          <input type="checkbox" id="paper-switch" aria-labelledby="paper-label" aria-describedby="paper-hint" />
+        </label>
       </section>
       <section class="settings-section" aria-labelledby="about-title">
         <h3 id="about-title">About Compare</h3>
@@ -279,10 +303,18 @@
         </button>
       </div>
 
-      <div class="switches">
-        <label class="switch" title="Ignore case"><input type="checkbox" id="opt-case" /><span>Ignore case</span></label>
-        <label class="switch" title="Ignore whitespace"><input type="checkbox" id="opt-space" /><span>Ignore whitespace</span></label>
-        <label class="switch" id="opt-only-switch" title="Differences only"><input type="checkbox" id="opt-only" /><span>Differences only</span></label>
+      <!-- The option switches sit in the top bar while it has room for them,
+           and otherwise in a menu under Options; see styles.css. -->
+      <button id="options-btn" class="btn" popovertarget="options-menu">
+        <svg class="icon" aria-hidden="true"><use href="#i-options" /></svg>
+        <span>Options</span>
+      </button>
+      <div id="options-menu" class="menu options-menu" popover role="group" aria-label="Options">
+        <div class="switches">
+          <label class="switch" title="Ignore case"><input type="checkbox" id="opt-case" /><span>Ignore case</span></label>
+          <label class="switch" title="Ignore whitespace"><input type="checkbox" id="opt-space" /><span>Ignore whitespace</span></label>
+          <label class="switch" id="opt-only-switch" title="Differences only"><input type="checkbox" id="opt-only" /><span>Differences only</span></label>
+        </div>
       </div>
 
       <span class="spacer"></span>
@@ -336,6 +368,18 @@
               <span class="spinner"></span>
               <span class="loading-text"></span>
             </div>
+            <!-- Shown when a file couldn't be opened on this side. -->
+            <div class="pane-error" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+              <strong class="pane-error-title"></strong>
+              <span class="pane-error-text"></span>
+              <div class="pane-error-actions">
+                <button class="btn choose-btn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>Choose another file
+                </button>
+                <button class="btn ghost dismiss-btn">Dismiss</button>
+              </div>
+            </div>
           </div>
           <div class="pane-body" data-side="right">
             <textarea spellcheck="false" placeholder=" "></textarea>
@@ -347,6 +391,18 @@
             <div class="pane-loading" role="status" hidden>
               <span class="spinner"></span>
               <span class="loading-text"></span>
+            </div>
+            <!-- Shown when a file couldn't be opened on this side. -->
+            <div class="pane-error" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+              <strong class="pane-error-title"></strong>
+              <span class="pane-error-text"></span>
+              <div class="pane-error-actions">
+                <button class="btn choose-btn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>Choose another file
+                </button>
+                <button class="btn ghost dismiss-btn">Dismiss</button>
+              </div>
             </div>
           </div>
           </div>
@@ -428,6 +484,18 @@
               <strong></strong>
               <span></span>
             </div>
+            <!-- Shown when a file couldn't be opened on this side. -->
+            <div class="pane-error" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+              <strong class="pane-error-title"></strong>
+              <span class="pane-error-text"></span>
+              <div class="pane-error-actions">
+                <button class="btn choose-btn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>Choose another file
+                </button>
+                <button class="btn ghost dismiss-btn">Dismiss</button>
+              </div>
+            </div>
           </div>
           <div class="file-pane" data-side="right">
             <div class="file-card" hidden></div>
@@ -445,6 +513,18 @@
               <svg class="icon" aria-hidden="true"><use href="#i-files" /></svg>
               <strong></strong>
               <span></span>
+            </div>
+            <!-- Shown when a file couldn't be opened on this side. -->
+            <div class="pane-error" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+              <strong class="pane-error-title"></strong>
+              <span class="pane-error-text"></span>
+              <div class="pane-error-actions">
+                <button class="btn choose-btn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>Choose another file
+                </button>
+                <button class="btn ghost dismiss-btn">Dismiss</button>
+              </div>
             </div>
           </div>
           </div>
@@ -503,6 +583,9 @@
       <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
       <span></span>
       <button id="message-action" class="btn ghost" hidden></button>
+      <button id="message-close" class="btn ghost icon-btn" title="Dismiss (Esc)" aria-label="Dismiss">
+        <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
+      </button>
     </div>
 
     <script src="../../node_modules/diff/dist/diff.min.js"></script>

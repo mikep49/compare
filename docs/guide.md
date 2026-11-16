@@ -53,6 +53,8 @@ To change what's being compared, click **Edit texts**, **Edit tables** or **Edit
 - **From Explorer**: select one or two files, right-click, and choose **Send to → Compare**. The installer adds this to the menu.
 - **Drop files onto the app's icon**, or run `Compare.exe original.docx changed.docx`.
 
+If a file can't be opened, the side it was meant for says why, with **Choose another file** to try again. Error messages stay until you close them with **✕** (or Esc); other messages go after a few seconds, but not while the pointer is on them.
+
 If Compare is already open, files sent to it this way open in the same window. Compare picks the right workspace from the file type: Word files and PDFs go to Documents, workbooks to Spreadsheets, and source code (`.js`, `.py`, `.cs`, `.ps1`, `.json`, `.html` and so on) to Code. Files from Explorer that are none of these go to **Files**, where they're compared by checksum. Anything you drop into the Files workspace stays there.
 
 What each workspace can open:
@@ -143,7 +145,7 @@ Files are read from disk a piece at a time, so even very large files work, with 
 
 ## Options
 
-The switches in the top bar apply to documents, spreadsheets and code:
+The switches in the top bar apply to documents, spreadsheets and code. When the window is too narrow to show them, they're under the **Options** button instead, which has a dot on it while any of them is on.
 
 - **Ignore case**: `Hello` and `hello` count as the same.
 - **Ignore whitespace**: spaces at the start and end of a line or cell don't count, and a run of spaces counts as one. For code, so does a missing line break at the end of a file.
@@ -170,9 +172,9 @@ Compare remembers the folder you last saved to.
 
 ## Themes and dark pages
 
-Open **Settings** at the bottom left to choose **Light**, **Dark** or **OLED** under Appearance. OLED is pure black. Your choice is remembered. The first time, Compare follows your Windows setting.
+Open **Settings** at the bottom left to choose **System**, **Light**, **Dark** or **OLED** under Appearance. **System**, the default, follows your Windows setting, and switches between light and dark as soon as Windows does, title bar buttons included. OLED is pure black. Your choice is remembered.
 
-The **moon** button at the bottom right of the Document and Sheet views shows pages dark, with their colors turned around. Click it again for light pages. Pictures in Word files keep their colors. A PDF page is drawn as a single picture, so photos in PDFs are turned around too.
+**Dark pages** shows the pages of the Document and Sheet views dark, with their colors turned around. Turn it on in Settings, or with the **moon** button at the bottom right of those views; the two are the same setting. Pictures in Word files keep their colors. A PDF page is drawn as a single picture, so photos in PDFs are turned around too.
 
 Compare also remembers its window size and position, its zoom, and which workspace and views you used last.
 
@@ -188,6 +190,7 @@ Compare also remembers its window size and position, its zoom, and which workspa
 | Ctrl+S | Export |
 | Ctrl+1, Ctrl+2, Ctrl+3, Ctrl+4 | Documents, Spreadsheets, Code, Files |
 | Ctrl+B | Collapse or expand the sidebar |
+| Arrow keys, Home, End | Move between the views (such as Text and Document), the sheet tabs, or the themes in Settings, once one has the focus |
 | Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Zoom in / out / reset |
 | Ctrl+mouse wheel | Zoom (the pages, over the Document and Sheet views) |
 
@@ -302,7 +305,7 @@ Started straight from the app, PowerShell would either be closed along with it (
 
 Everything happens on your computer, and Compare never uploads your files. The only time it goes online is to ask GitHub whether a new version is out, and to download one when you click **Update**. The page isn't allowed to load anything from outside the app at all.
 
-Settings are stored in two places in Electron's user data folder under `%APPDATA%`. The main process keeps the window's size and position, the zoom and the last export folder in `settings.json`. The page keeps the theme, views, options and sidebar state in its own local storage.
+Settings are stored in two places in Electron's user data folder under `%APPDATA%`. The main process keeps the window's size and position, the zoom and the last export folder in `settings.json`. The page keeps the theme, dark pages, views, options and sidebar state in its own local storage.
 
 ## Project layout
 

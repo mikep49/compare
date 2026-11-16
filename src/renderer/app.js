@@ -15,13 +15,16 @@ const optCase = $('#opt-case');
 const optSpace = $('#opt-space');
 const optOnly = $('#opt-only');
 const optOnlySwitch = $('#opt-only-switch');
+const optionsBtn = $('#options-btn');
+const optionsMenu = $('#options-menu');
 const viewSwitch = $('#view-switch');
 const viewButtons = [...viewSwitch.querySelectorAll('button')];
-const themeButtons = [...document.querySelectorAll('#theme-switch button')];
+const themeSwitch = $('#theme-switch');
+const themeButtons = [...themeSwitch.querySelectorAll('button')];
 const sidebarItems = [...document.querySelectorAll('.sidebar-item[data-kind]')];
 const sidebarToggle = $('#sidebar-toggle');
 // The controls for comparing texts and tables; files have no use for them.
-const compareControls = [compareBtn, $('#swap-btn'), $('.switches')];
+const compareControls = [compareBtn, $('#swap-btn'), optionsBtn, optionsMenu];
 
 const SIDES = ['left', 'right'];
 // Unchanged lines kept around each change when only the differences are on
@@ -105,7 +108,18 @@ const KINDS = {
 };
 
 const MESSAGE_ICONS = { error: '#i-alert', info: '#i-info', success: '#i-check' };
-let messageTimer;
+// How long a message stays, unless it is an error: those stay until they
+// are dismissed.
+const MESSAGE_TIME = 6000;
+let messageTimer = null;
+// The time the message on show has left, or null when it stays; and when
+// that time is up, while it runs. It stands still while the pointer is on
+// the message or the focus in it.
+let messageLeft = null;
+let messageDue = 0;
+// Where the focus was before it went to the message, to go back to when
+// the message goes.
+let messageReturn = null;
 // What the button of the message on show does, if it has one.
 let messageAction = null;
 
@@ -136,13 +150,35 @@ for (const kind of Object.keys(preferredView)) {
 
 function hideMessage() {
   clearTimeout(messageTimer);
+  messageTimer = null;
+  messageLeft = null;
+  if (messageEl.contains(document.activeElement)) messageReturn?.focus();
+  messageReturn = null;
   messageEl.hidden = true;
   messageAction = null;
 }
 
-// `kind` is error, info or success. With an `action`, { label, run }, the
-// message has a button that does it.
-function showMessage(text, kind = 'error', duration = 6000, action = null) {
+// Runs the time of the message on show, unless it stays or is held.
+function runMessageTimer() {
+  clearTimeout(messageTimer);
+  messageTimer = null;
+  if (messageLeft === null || messageEl.hidden || messageEl.matches(':hover, :focus-within')) return;
+  messageDue = Date.now() + messageLeft;
+  messageTimer = setTimeout(hideMessage, messageLeft);
+}
+
+function holdMessage() {
+  if (messageTimer === null) return;
+  clearTimeout(messageTimer);
+  messageTimer = null;
+  // Once let go, it stays a moment longer to be read.
+  messageLeft = Math.max(messageDue - Date.now(), 2000);
+}
+
+// `kind` is error, info or success. Errors stay until dismissed; the others
+// go after `duration` ms. With an `action`, { label, run }, the message has
+// a button that does it.
+function showMessage(text, kind = 'error', duration = kind === 'error' ? null : MESSAGE_TIME, action = null) {
   messageEl.querySelector('span').textContent = text;
   messageEl.querySelector('use').setAttribute('href', MESSAGE_ICONS[kind]);
   messageEl.dataset.kind = kind;
@@ -151,8 +187,8 @@ function showMessage(text, kind = 'error', duration = 6000, action = null) {
   messageBtn.hidden = !action;
   messageBtn.textContent = action ? action.label : '';
   messageEl.hidden = false;
-  clearTimeout(messageTimer);
-  messageTimer = setTimeout(hideMessage, duration);
+  messageLeft = duration;
+  runMessageTimer();
 }
 
 function runMessageAction() {
@@ -162,6 +198,23 @@ function runMessageAction() {
 }
 
 messageBtn.addEventListener('click', runMessageAction);
+$('#message-close').addEventListener('click', hideMessage);
+messageEl.addEventListener('mouseenter', holdMessage);
+messageEl.addEventListener('mouseleave', runMessageTimer);
+messageEl.addEventListener('focusin', (event) => {
+  if (!messageEl.contains(event.relatedTarget)) messageReturn = event.relatedTarget;
+  holdMessage();
+});
+messageEl.addEventListener('focusout', (event) => {
+  // Once the focus has gone where it's going.
+  if (!messageEl.contains(event.relatedTarget)) setTimeout(runMessageTimer);
+});
+messageEl.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  event.stopPropagation();
+  hideMessage();
+});
 
 const fileName = (filePath) => filePath.split(/[\\/]/).pop();
 const stem = (name) => name.replace(/\.[^.]+$/, '');
@@ -211,6 +264,38 @@ function renderDetails(container, details) {
       return section;
     })
   );
+}
+
+// Radio groups and tab lists (the theme, the view and the sheet on show)
+// are one stop for Tab: the button picked, or else the first that can be
+// used. Arrow keys, Home and End go from button to button, skipping the
+// disabled ones, and pick the one they land on, as a click does.
+
+const isPicked = (button) => button.getAttribute('aria-checked') === 'true' || button.getAttribute('aria-selected') === 'true';
+
+// After the pick changed.
+function setTabStop(buttons) {
+  const usable = buttons.filter((button) => !button.disabled);
+  const stop = usable.find(isPicked) ?? usable[0];
+  for (const button of buttons) button.tabIndex = button === stop ? 0 : -1;
+}
+
+function arrowKeys(group) {
+  group.addEventListener('keydown', (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const buttons = [...group.querySelectorAll('button')].filter((button) => !button.disabled);
+    const index = buttons.indexOf(event.target);
+    if (index < 0) return;
+    let next;
+    if (['ArrowRight', 'ArrowDown'].includes(event.key)) next = (index + 1) % buttons.length;
+    else if (['ArrowLeft', 'ArrowUp'].includes(event.key)) next = (index + buttons.length - 1) % buttons.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = buttons.length - 1;
+    else return;
+    event.preventDefault();
+    buttons[next].click();
+    buttons[next].focus();
+  });
 }
 
 // Tab stops this many characters apart line up the columns of cells written
@@ -287,16 +372,42 @@ function mountWorkspace(kind) {
   return root;
 }
 
-// Open file and Clear in the head of one side.
+// Open file and Clear in the head of one side. Returns what Open file does:
+// asks for a file to open there.
 function wireHead(head, side, clear) {
   const fileInput = head.querySelector('input[type="file"]');
-  head.querySelector('.open-btn').addEventListener('click', () => fileInput.click());
+  const chooseFile = () => fileInput.click();
+  head.querySelector('.open-btn').addEventListener('click', chooseFile);
   fileInput.addEventListener('change', () => {
     const [file] = fileInput.files;
     fileInput.value = '';
     if (file) loadFile(side, file);
   });
   head.querySelector('.clear-btn').addEventListener('click', clear);
+  return chooseFile;
+}
+
+// What a side shows when a file couldn't be opened there: why, a button to
+// choose another file and one that puts the message away, after which the
+// focus goes to `dismissFocus`. The message stays until then, or until
+// something else is opened there.
+function paneError(el, chooseFile, dismissFocus) {
+  const hide = () => {
+    el.hidden = true;
+  };
+  el.querySelector('.choose-btn').addEventListener('click', chooseFile);
+  el.querySelector('.dismiss-btn').addEventListener('click', () => {
+    hide();
+    dismissFocus.focus();
+  });
+  return {
+    show(title, text) {
+      el.querySelector('.pane-error-title').textContent = title;
+      el.querySelector('.pane-error-text').textContent = text;
+      el.hidden = false;
+    },
+    hide,
+  };
 }
 
 // A workspace holds one comparison: its two sides, their files and, while
@@ -400,7 +511,8 @@ function createWorkspace(kind) {
     pane.detailsEl.style.positionAnchor = anchor;
     pane.infoBtn.popoverTargetElement = pane.detailsEl;
 
-    wireHead(head, side, () => clearSide(side));
+    const chooseFile = wireHead(head, side, () => clearSide(side));
+    pane.error = paneError(body.querySelector('.pane-error'), chooseFile, pane.textarea);
     // Text typed or pasted over a loaded file is no longer that file.
     pane.textarea.addEventListener('input', () => {
       forgetCleared(side);
@@ -424,6 +536,8 @@ function createWorkspace(kind) {
   function setLoading(side, name, load) {
     const pane = panes[side];
     if (name === null && pane.loading !== load) return;
+    // A new file takes over from one that couldn't be opened.
+    if (name !== null) pane.error.hide();
     pane.loading = name === null ? 0 : load;
     pane.loadingEl.hidden = name === null;
     pane.loadingEl.querySelector('.loading-text').textContent = name === null ? '' : `Opening ${name}…`;
@@ -463,8 +577,14 @@ function createWorkspace(kind) {
     showMessage(`Cleared ${what}`, 'info', 8000, pane.undo);
   }
 
+  // Shows on one side that file `name` couldn't be opened, and why.
+  function showFileError(side, name, error) {
+    panes[side].error.show(`Couldn't open ${name}`, error);
+  }
+
   function setText(side, text, file) {
     forgetCleared(side);
+    panes[side].error.hide();
     panes[side].textarea.value = text;
     setFile(side, file);
     alignColumns(side);
@@ -821,6 +941,7 @@ function createWorkspace(kind) {
   function showSheet(index, keep = false) {
     activeSheet = index;
     [...sheetTabs.children].forEach((tab, i) => tab.setAttribute('aria-selected', String(i === index)));
+    setTabStop([...sheetTabs.children]);
     if (!sheetTabs.hidden) sheetTabs.children[index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
     const diff = sheetDiffs[index];
@@ -1056,6 +1177,7 @@ function createWorkspace(kind) {
 
   find('.prev-btn').addEventListener('click', () => goToBlock(-1));
   find('.next-btn').addEventListener('click', () => goToBlock(1));
+  arrowKeys(sheetTabs);
 
   return {
     kind,
@@ -1074,6 +1196,7 @@ function createWorkspace(kind) {
     setComparing,
     setText,
     setLoading,
+    showFileError,
     sync,
     goToBlock,
     swap,
@@ -1119,7 +1242,8 @@ function createFilesWorkspace() {
       file: null,
     };
     head.querySelector('.pane-title').textContent = config.titles[side];
-    wireHead(head, side, () => clear(side));
+    const chooseFile = wireHead(head, side, () => clear(side));
+    panes[side].error = paneError(body.querySelector('.pane-error'), chooseFile, head.querySelector('.open-btn'));
     panes[side].verifyInput.addEventListener('input', () => verify(side));
     showHint(side, config.hint[side], config.drop);
   }
@@ -1184,6 +1308,7 @@ function createFilesWorkspace() {
     if (pane.job) window.compareApi.cancelHash(pane.job);
     pane.job = 0;
     pane.file = null;
+    pane.error.hide();
     showHint(side, config.hint[side], config.drop);
     renderVerdict();
   }
@@ -1203,6 +1328,7 @@ function createFilesWorkspace() {
     pane.job = 0;
     if (!result.ok) {
       clear(side);
+      pane.error.show(`Couldn't read ${file.name}`, result.error);
       showMessage(`Couldn't read ${file.name}: ${result.error}`);
       return;
     }
@@ -1246,26 +1372,27 @@ const workspaces = {
 let active = workspaces.docs;
 
 // Pages and sheets shown as they look are white paper or, with Dark pages
-// on, dark. theme.js puts the choice back when the app starts.
+// on, dark. It's switched by the moon button of the document and sheet
+// views and in Settings. theme.js puts the choice back when the app starts.
 const paperButtons = [...document.querySelectorAll('.doc-paper')];
+const paperSwitch = $('#paper-switch');
 
 function renderPaper() {
   const dark = document.documentElement.dataset.paper === 'dark';
   for (const button of paperButtons) button.setAttribute('aria-pressed', String(dark));
+  paperSwitch.checked = dark;
 }
 
-function togglePaper() {
-  const dark = document.documentElement.dataset.paper !== 'dark';
+function setPaper(dark) {
   document.documentElement.dataset.paper = dark ? 'dark' : 'light';
-  try {
-    localStorage.setItem('paper', dark ? 'dark' : 'light');
-  } catch {
-    // Remembering it is a convenience only.
-  }
+  saveSetting('paper', dark ? 'dark' : 'light');
   renderPaper();
 }
 
-for (const button of paperButtons) button.addEventListener('click', togglePaper);
+for (const button of paperButtons) {
+  button.addEventListener('click', () => setPaper(document.documentElement.dataset.paper !== 'dark'));
+}
+paperSwitch.addEventListener('change', () => setPaper(paperSwitch.checked));
 renderPaper();
 
 // The buttons of the top bar that depend on the workspace and on whether it
@@ -1298,11 +1425,39 @@ function renderTopbar() {
     const lookButton = viewSwitch.querySelector('[data-view="look"]');
     lookButton.disabled = !canShowLook;
     if (!canShowLook) lookButton.title = views.look.missing;
+    setTabStop(viewButtons);
   }
 
   // The files shown as they look stay whole: what didn't change is faded.
   optOnlySwitch.title = active.showingLook ? views.look.fade : 'Differences only';
+  renderOptionsButton();
 }
+
+// Options stands in for the option switches when the top bar has no room
+// for them, and has a dot on it while any of those that apply is on.
+const listFormat = new Intl.ListFormat('en', { type: 'conjunction' });
+
+function renderOptionsButton() {
+  const on = [...optionsMenu.querySelectorAll('.switch')]
+    .filter((option) => !option.hidden && option.querySelector('input').checked)
+    .map((option) => option.textContent.trim());
+  optionsBtn.classList.toggle('has-on', on.length > 0);
+  if (on.length === 0) {
+    optionsBtn.title = 'Comparison options';
+    optionsBtn.removeAttribute('aria-label');
+  } else {
+    const label = `Options: ${listFormat.format(on)} ${on.length === 1 ? 'is' : 'are'} on`;
+    optionsBtn.title = label;
+    optionsBtn.setAttribute('aria-label', label);
+  }
+}
+
+optionsBtn.style.anchorName = '--options';
+optionsMenu.style.positionAnchor = '--options';
+// The menu has nothing to do once the switches are back in the top bar.
+new ResizeObserver(() => {
+  if (optionsMenu.matches(':popover-open') && !optionsBtn.checkVisibility()) optionsMenu.hidePopover();
+}).observe($('.topbar'));
 
 function selectView(view) {
   const { views } = KINDS[active.kind];
@@ -1320,12 +1475,14 @@ function selectView(view) {
 for (const button of viewButtons) {
   button.addEventListener('click', () => selectView(button.dataset.view));
 }
+arrowKeys(viewSwitch);
 
 function activate(kind) {
   closeFind();
   active = workspaces[kind];
   for (const workspace of Object.values(workspaces)) workspace.root.hidden = workspace !== active;
   for (const item of sidebarItems) item.setAttribute('aria-current', String(item.dataset.kind === kind));
+  if (kind === 'files') optionsMenu.hidePopover();
   for (const control of compareControls) control.hidden = kind === 'files';
   // Code always shows its changes in hunks, which open up where asked.
   optOnlySwitch.hidden = kind === 'code';
@@ -1394,6 +1551,7 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
       if (active.kind !== 'files') activate('files');
       return;
     }
+    origin.showFileError(side, file.name, result.error);
     showMessage(`Couldn't open ${file.name}: ${result.error}`);
     return;
   }
@@ -1503,12 +1661,10 @@ for (const item of exportMenu.querySelectorAll('button')) {
   item.addEventListener('click', () => exportAs(item.dataset.format));
 }
 
+// Marks the theme picked in Settings; theme.js shows it.
 function selectTheme(theme) {
-  for (const button of themeButtons) {
-    const selected = button.dataset.theme === theme;
-    button.setAttribute('aria-checked', String(selected));
-    button.tabIndex = selected ? 0 : -1;
-  }
+  for (const button of themeButtons) button.setAttribute('aria-checked', String(button.dataset.theme === theme));
+  setTabStop(themeButtons);
 }
 
 compareBtn.addEventListener('click', toggleComparing);
@@ -1532,6 +1688,7 @@ for (const option of Object.values(OPTIONS)) {
       // As above.
     }
     active.sync();
+    renderOptionsButton();
   });
 }
 
@@ -1551,7 +1708,7 @@ function renderSidebarToggle() {
 
 function toggleSidebar() {
   const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
-  localStorage.setItem('sidebar', collapsed ? 'collapsed' : 'expanded');
+  saveSetting('sidebar', collapsed ? 'collapsed' : 'expanded');
   renderSidebarToggle();
 }
 
@@ -1562,23 +1719,12 @@ for (const button of themeButtons) {
   button.addEventListener('click', () => {
     const { theme } = button.dataset;
     applyTheme(theme);
-    localStorage.setItem('theme', theme);
+    saveSetting('theme', theme);
     selectTheme(theme);
   });
-  button.addEventListener('keydown', (event) => {
-    const index = themeButtons.indexOf(button);
-    let next;
-    if (['ArrowRight', 'ArrowDown'].includes(event.key)) next = (index + 1) % themeButtons.length;
-    else if (['ArrowLeft', 'ArrowUp'].includes(event.key)) next = (index + themeButtons.length - 1) % themeButtons.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = themeButtons.length - 1;
-    else return;
-    event.preventDefault();
-    themeButtons[next].click();
-    themeButtons[next].focus();
-  });
 }
-selectTheme(document.documentElement.dataset.theme);
+arrowKeys(themeSwitch);
+selectTheme(themeChoice);
 
 // Ctrl+Plus, Ctrl+Minus and Ctrl+0, on the main keyboard or the number pad.
 const ZOOM_KEYS = { '=': 'in', '+': 'in', NumpadAdd: 'in', '-': 'out', NumpadSubtract: 'out', 0: 'reset', Numpad0: 'reset' };
