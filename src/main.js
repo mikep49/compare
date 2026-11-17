@@ -12,6 +12,7 @@ const {
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { fileErrorMessage } = require('./file-error');
 const { hashFile } = require('./hash-file');
 const { startUpdater } = require('./updater');
 
@@ -219,7 +220,7 @@ ipcMain.handle('hash-file', async (event, { id, ...file }) => {
   try {
     return { ok: true, ...(await hashFile(file, { signal: job.signal, onProgress })) };
   } catch (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, error: fileErrorMessage(error) };
   } finally {
     hashJobs.delete(id);
   }
@@ -244,7 +245,7 @@ ipcMain.handle('save-file', async (event, { name, filters, content }) => {
     settings.exportFolder = path.dirname(filePath);
     return { ok: true, filePath };
   } catch (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, error: fileErrorMessage(error, 'save') };
   }
 });
 

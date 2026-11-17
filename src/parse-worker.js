@@ -5,13 +5,14 @@
 // the parse-file and highlight-code handlers in main.js return it.
 const { parseFile } = require('./parse-file');
 const { highlightCode } = require('./highlight-code');
+const { fileErrorMessage } = require('./file-error');
 
 process.parentPort.on('message', async ({ data: { id, file, code } }) => {
   let result;
   try {
     result = { ok: true, ...(code ? highlightCode(code) : await parseFile(file)) };
   } catch (error) {
-    result = { ok: false, error: error.message, code: error.code };
+    result = { ok: false, error: fileErrorMessage(error), code: error.code };
   }
   process.parentPort.postMessage({ id, result });
 });
