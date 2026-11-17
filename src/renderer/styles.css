@@ -10,7 +10,9 @@
 }
 
 /* --chrome is the window background around the sheet; main.js mirrors it.
-   --chrome-tint replaces it when the window sits on the Windows backdrop.
+   --chrome-tint replaces it when the window sits on the Windows backdrop,
+   Mica, and brings that closer to --chrome. --segment-text is for the
+   views not picked in the view switch, on its own shade of the backdrop.
    The accent comes in three: --accent for marks and outlines, --accent-fill
    behind white text and --accent-text for text in the accent's color, each
    with enough contrast for what it is (WCAG AA). The theme previews in
@@ -19,11 +21,11 @@
 [data-preview='light'] {
   color-scheme: light;
   --chrome: #f3f3f3;
-  /* Lightens the Acrylic backdrop so the text on it stays readable. */
   --chrome-tint: rgba(243, 243, 243, 0.5);
   --surface: #ffffff;
   --raised: #ffffff;
   --segment: #ffffff;
+  --segment-text: #5c5c66;
   --border: #e6e6e9;
   --border-strong: #d6d6db;
   --text: #18181b;
@@ -57,11 +59,11 @@
 [data-preview='dark'] {
   color-scheme: dark;
   --chrome: #202020;
-  /* Darkens the Acrylic backdrop so the text on it stays readable. */
   --chrome-tint: rgba(32, 32, 32, 0.4);
   --surface: #272727;
   --raised: #333333;
   --segment: rgba(255, 255, 255, 0.13);
+  --segment-text: #adadad;
   --border: #353535;
   --border-strong: #454545;
   --text: #ededed;
@@ -100,6 +102,7 @@
   --surface: #000000;
   --raised: #101010;
   --segment: rgba(255, 255, 255, 0.15);
+  --segment-text: #a3a3a3;
   --border: #1f1f1f;
   --border-strong: #2c2c2c;
   --text: #e8e8e8;
@@ -159,8 +162,8 @@ body {
   background: var(--chrome-tint);
 }
 
-/* The light backdrop is a shade darker than --chrome, and the muted text on
-   it a shade darker to match. */
+/* The light backdrop takes on the wallpaper's colour, so the muted text on
+   it is a shade darker, to stay readable whatever that is. */
 .material[data-theme='light'] :is(.sidebar, .topbar) {
   --muted: #5c5c66;
 }
@@ -852,7 +855,7 @@ textarea {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--segment-text);
   font: inherit;
   font-weight: 500;
   transition:
@@ -882,7 +885,7 @@ textarea {
 }
 
 .segmented button:disabled:hover {
-  color: var(--muted);
+  color: var(--segment-text);
 }
 
 /* Text or document, while documents are being compared. */

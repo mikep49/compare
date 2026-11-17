@@ -19,19 +19,23 @@ const { startUpdater } = require('./updater');
 // Must match --topbar-height in styles.css.
 const TITLE_BAR_HEIGHT = 48;
 
-// The backdrop materials need Windows 11 22H2 (build 22621) or newer;
+// The backdrop material needs Windows 11 22H2 (build 22621) or newer;
 // everywhere else the window gets a solid background instead.
 const hasMaterial = process.platform === 'win32' && Number(os.release().split('.')[2]) >= 22621;
 
-// `chrome` must match the --chrome values in styles.css. `material` is the
-// backdrop behind the sidebar and top bar: Acrylic, which blurs what is
-// behind the window and so shows much more than Mica, which only takes the
-// wallpaper's colour. --chrome-tint in styles.css keeps the text on it
-// readable. OLED keeps Mica, which stays dark.
+// The backdrop behind the sidebar and top bar, in every theme. Mica takes
+// the wallpaper's colour but keeps the brightness Windows gives it for light
+// or dark, so the text on it stays readable whatever is behind the window.
+// Acrylic blurs the windows behind instead: over a white one the dark theme
+// came out mid-grey, and no tint light enough to leave it see-through kept
+// the text readable.
+const MATERIAL = 'mica';
+
+// `chrome` must match the --chrome values in styles.css.
 const THEMES = {
-  light: { source: 'light', chrome: '#f3f3f3', symbols: '#18181b', material: 'acrylic' },
-  dark: { source: 'dark', chrome: '#202020', symbols: '#ededed', material: 'acrylic' },
-  oled: { source: 'dark', chrome: '#000000', symbols: '#e8e8e8', material: 'mica' },
+  light: { source: 'light', chrome: '#f3f3f3', symbols: '#18181b' },
+  dark: { source: 'dark', chrome: '#202020', symbols: '#ededed' },
+  oled: { source: 'dark', chrome: '#000000', symbols: '#e8e8e8' },
 };
 
 // The zoom steps Ctrl+Plus and Ctrl+Minus go through, as in Chrome.
@@ -137,7 +141,7 @@ function createWindow() {
     titleBarOverlay: { color: '#00000000', symbolColor: theme.symbols, height: TITLE_BAR_HEIGHT },
     // With a material set and no backgroundColor, Electron makes the page
     // background transparent so the material shows through.
-    ...(hasMaterial ? { backgroundMaterial: theme.material } : { backgroundColor: theme.chrome }),
+    ...(hasMaterial ? { backgroundMaterial: MATERIAL } : { backgroundColor: theme.chrome }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       additionalArguments: hasMaterial ? ['--compare-material'] : [],
@@ -264,7 +268,7 @@ let themeChoice = 'system';
 function paintChrome(owner) {
   const theme = THEMES[themeChoice] ?? (nativeTheme.shouldUseDarkColors ? THEMES.dark : THEMES.light);
   owner.setTitleBarOverlay({ color: '#00000000', symbolColor: theme.symbols });
-  if (hasMaterial) owner.setBackgroundMaterial(theme.material);
+  if (hasMaterial) owner.setBackgroundMaterial(MATERIAL);
   else owner.setBackgroundColor(theme.chrome);
 }
 
