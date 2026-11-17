@@ -8,6 +8,8 @@ const CodeLanguages = require('../src/code-languages');
 // Run the renderer's file-opening code without Electron or a DOM.
 const app = fs.readFileSync(path.join(__dirname, '../src/renderer/app.js'), 'utf8');
 const opening = app.slice(app.indexOf('const loads ='), app.indexOf('function openPaths('));
+// Whether a toast says that a file couldn't be opened, or only its side.
+const fileMessages = app.slice(app.indexOf('function showFileMessage('), app.indexOf('function runMessageAction('));
 const sheetFile = vm.runInNewContext(app.match(/^const SHEET_FILE = (.+);$/m)[1]);
 
 function setup() {
@@ -17,9 +19,12 @@ function setup() {
   const workspaces = Object.fromEntries(
     ['docs', 'sheets', 'code', 'files'].map((kind) => {
       const panes = { left: { text: '', loading: 0 }, right: { text: '', loading: 0 } };
-      return [kind, {
+      const workspace = {
         kind,
         panes,
+        comparing: false,
+        // As in app.js: out of sight while comparing or another one is on show.
+        sidesInSight: () => !workspace.comparing && context.active === workspace,
         isEmpty: (side) => !panes[side].text && !panes[side].loading,
         setLoading(side, name, load) {
           if (name !== null || panes[side].loading === load) panes[side].loading = name === null ? 0 : load;
@@ -30,7 +35,8 @@ function setup() {
         showFileError(side, name, error) {
           panes[side].error = { name, error };
         },
-      }];
+      };
+      return [kind, workspace];
     })
   );
   const context = vm.createContext({
@@ -38,8 +44,12 @@ function setup() {
     active: workspaces.docs,
     CodeLanguages,
     SHEET_FILE: sheetFile,
-    activate(kind) { context.active = workspaces[kind]; },
+    activate(kind) {
+      context.active = workspaces[kind];
+      context.settleFileMessage();
+    },
     showMessage(message) { messages.push(message); },
+    hideMessage() { messages.length = 0; },
     window: {
       compareApi: {
         parseFile(file, options) {
@@ -49,12 +59,19 @@ function setup() {
       },
     },
   });
-  vm.runInContext(opening, context, { filename: 'app.js' });
+  vm.runInContext(`let messageStandsIn = null;
+${fileMessages}
+${opening}`, context, { filename: 'app.js' });
   return {
     workspaces,
     messages,
     parseOptions,
     activate: context.activate,
+    // As toggleComparing() does.
+    toggleComparing(kind) {
+      workspaces[kind].comparing = !workspaces[kind].comparing;
+      context.settleFileMessage();
+    },
     open: (side, name, options) => context.loadFile(side, { name }, options),
     finish: (name, result) => pending.get(name).resolve({ ok: true, text: name, ...result }),
     fail: (name) => pending.get(name).reject(new Error('read failed')),
@@ -207,4 +224,38 @@ test('a failed load still reports its error after a load in another workspace', 
   assert.deepEqual(app.workspaces.docs.panes.left.error, { name: 'report.docx', error: 'read failed' });
   assert.equal(app.workspaces.docs.panes.left.loading, 0);
   assert.equal(app.workspaces.code.panes.left.error, undefined);
+});
+
+test('a failed load on a side in sight is told there, without a toast as well', async () => {
+  const app = setup();
+  const loading = app.open('right', 'locked.txt');
+  app.fail('locked.txt');
+  await loading;
+  assert.deepEqual(app.workspaces.docs.panes.right.error, { name: 'locked.txt', error: 'read failed' });
+  assert.deepEqual(app.messages, []);
+});
+
+test('a failed load while comparing gets a toast, which goes once the side is back in sight', async () => {
+  const app = setup();
+  app.toggleComparing('docs');
+  const loading = app.open('right', 'locked.txt');
+  app.fail('locked.txt');
+  await loading;
+  assert.deepEqual(app.messages, ["Couldn't open locked.txt: read failed"]);
+  assert.deepEqual(app.workspaces.docs.panes.right.error, { name: 'locked.txt', error: 'read failed' });
+  app.toggleComparing('docs');
+  assert.deepEqual(app.messages, []);
+});
+
+test("a failed load in a workspace out of sight gets a toast until it's on show", async () => {
+  const app = setup();
+  const loading = app.open('left', 'report.docx');
+  app.activate('code');
+  app.fail('report.docx');
+  await loading;
+  assert.deepEqual(app.messages, ["Couldn't open report.docx: read failed"]);
+  app.activate('sheets');
+  assert.equal(app.messages.length, 1, 'still out of sight');
+  app.activate('docs');
+  assert.deepEqual(app.messages, []);
 });

@@ -358,17 +358,9 @@
         <div class="sheet-body">
           <div class="edit-view">
           <div class="pane-body" data-side="left">
-            <textarea spellcheck="false" placeholder=" "></textarea>
-            <div class="empty-hint">
-              <svg class="icon" aria-hidden="true"><use /></svg>
-              <strong></strong>
-              <span></span>
-            </div>
-            <div class="pane-loading" role="status" hidden>
-              <span class="spinner"></span>
-              <span class="loading-text"></span>
-            </div>
-            <!-- Shown when a file couldn't be opened on this side. -->
+            <!-- Shown when a file couldn't be opened on this side: over it while
+                 it's empty, above its text otherwise. It comes before the text
+                 so that the Tab key reaches it first too. -->
             <div class="pane-error" hidden>
               <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
               <strong class="pane-error-title"></strong>
@@ -379,20 +371,22 @@
                 </button>
                 <button class="btn ghost dismiss-btn">Dismiss</button>
               </div>
+            </div>
+            <textarea spellcheck="false" placeholder=" "></textarea>
+            <div class="empty-hint">
+              <svg class="icon" aria-hidden="true"><use /></svg>
+              <strong></strong>
+              <span></span>
+            </div>
+            <div class="pane-loading" role="status" hidden>
+              <span class="spinner"></span>
+              <span class="loading-text"></span>
             </div>
           </div>
           <div class="pane-body" data-side="right">
-            <textarea spellcheck="false" placeholder=" "></textarea>
-            <div class="empty-hint">
-              <svg class="icon" aria-hidden="true"><use /></svg>
-              <strong></strong>
-              <span></span>
-            </div>
-            <div class="pane-loading" role="status" hidden>
-              <span class="spinner"></span>
-              <span class="loading-text"></span>
-            </div>
-            <!-- Shown when a file couldn't be opened on this side. -->
+            <!-- Shown when a file couldn't be opened on this side: over it while
+                 it's empty, above its text otherwise. It comes before the text
+                 so that the Tab key reaches it first too. -->
             <div class="pane-error" hidden>
               <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
               <strong class="pane-error-title"></strong>
@@ -403,6 +397,16 @@
                 </button>
                 <button class="btn ghost dismiss-btn">Dismiss</button>
               </div>
+            </div>
+            <textarea spellcheck="false" placeholder=" "></textarea>
+            <div class="empty-hint">
+              <svg class="icon" aria-hidden="true"><use /></svg>
+              <strong></strong>
+              <span></span>
+            </div>
+            <div class="pane-loading" role="status" hidden>
+              <span class="spinner"></span>
+              <span class="loading-text"></span>
             </div>
           </div>
           </div>
