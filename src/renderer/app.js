@@ -577,7 +577,9 @@ function createWorkspace(kind) {
     showMessage(`Cleared ${what}`, 'info', 8000, pane.undo);
   }
 
-  // Shows on one side that file `name` couldn't be opened, and why.
+  // Shows on one side that file `name` couldn't be opened, and why. While
+  // the side has text, that stays in sight under the message: it is still
+  // what gets compared.
   function showFileError(side, name, error) {
     panes[side].error.show(`Couldn't open ${name}`, error);
   }
