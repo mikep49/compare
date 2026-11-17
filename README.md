@@ -58,7 +58,7 @@ Find out if **any two files** are identical, or check a download against the MD5
 - **Jump between changes** with F8, and **find** text on both sides
 - **Export** an HTML report, a patch file, or a CSV list of the changed cells
 - **Ignore** case or whitespace, or show only the differences (on pages and sheets, everything else is grayed out)
-- **Light, dark and OLED-black** themes, and dark pages for documents and sheets
+- **Light, dark and OLED-black** themes, or follow Windows, and dark pages for documents and sheets, all in **Settings**
 - **Open from Explorer**: select two files and choose *Send to → Compare*
 - **Private**: your files never leave your computer
 
@@ -71,7 +71,7 @@ Get the latest version from the [Releases page](https://github.com/mikep49/compa
 
 The app isn't code-signed, so Windows SmartScreen may warn you the first time you run it. Click **More info → Run anyway**.
 
-From then on, Compare updates itself: when a new version is out, an **Update** button shows at the bottom left. This works for both the installer and the portable exe.
+From then on, Compare updates itself: when a new version is out, an **Update** button shows at the bottom left, and **Settings** can check for one at any time. This works for both the installer and the portable exe.
 
 New to Compare? The [user guide](docs/guide.md) covers everything it can do.
 

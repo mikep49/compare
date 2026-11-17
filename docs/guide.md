@@ -289,7 +289,7 @@ The code is colored with [highlight.js](https://highlightjs.org/) (`src/highligh
 
 ## Updating itself
 
-`src/updater.js` asks GitHub for the latest release ([the releases API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)) a few seconds after starting and every six hours. Only plain versions count, so drafts and pre-releases are never offered. `src/update.js` holds the parts that don't need Electron, so they can be tested: comparing versions, picking the right file, and the swap script.
+`src/updater.js` asks GitHub for the latest release ([the releases API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)) a few seconds after starting, every six hours, and when you click **Check for updates** in Settings. Checks that overlap share one request, and a check that fails keeps any update already found. Only plain versions count, so drafts and pre-releases are never offered. `src/update.js` holds the parts that don't need Electron, so they can be tested: comparing versions, picking the right file, and the swap script.
 
 How the update is put in place depends on how Compare runs:
 
@@ -319,11 +319,14 @@ Settings are stored in two places in Electron's user data folder under `%APPDATA
 | `src/code-languages.js` | Tells the language of a source file from its name |
 | `src/sheet-look.js` | Reads the formatting of spreadsheets |
 | `src/table-text.js` | Turns spreadsheets into delimited text and back |
+| `src/file-error.js` | Plain words for the errors Windows gives when a file can't be read or saved |
 | `src/hash-file.js` | Works out checksums |
 | `src/updater.js` | Checks for updates, downloads and applies them |
 | `src/update.js` | Versions, release files and the swap script for updates |
 | `src/renderer/app.js` | The page: workspaces, top bar, keyboard, find, export |
 | `src/renderer/diff-engine.js` | Compares texts line by line and word by word |
+| `src/renderer/diff-worker.js` | Runs comparisons in the background, away from the interface |
+| `src/renderer/diff-client.js` | Hands each workspace's comparisons to its own worker |
 | `src/renderer/table-diff.js` | Compares spreadsheets sheet by sheet |
 | `src/renderer/code-diff.js` | Compares code as git does, in hunks; writes code patches |
 | `src/renderer/code-html.js` | Turns colored code into lines, with the changed words marked |
@@ -334,6 +337,7 @@ Settings are stored in two places in Electron's user data folder under `%APPDATA
 | `src/renderer/doc-view.js` | The Document view |
 | `src/renderer/sheet-view.js` | The Sheet view |
 | `src/renderer/table-view.js` | The Table view |
+| `src/renderer/theme.js` | Themes, including System, and the sidebar's state before the first paint |
 | `src/renderer/report.js` | HTML reports, text patch files and CSV lists of changes |
 | `build/installer.nsh` | Adds *Send to → Compare* when installing |
 | `test/` | Tests, run with Node's built-in test runner |
@@ -349,11 +353,11 @@ npm test                 # run the tests
 npm run dist:installer   # build the installer and portable exe into dist/
 ```
 
-To publish a release, set `version` in `package.json` and `package-lock.json`, write the release notes in `docs/releases/v1.4.0.md` (named after the tag), commit, then push a matching tag:
+To publish a release, set `version` in `package.json` and `package-lock.json`, write the release notes in `docs/releases/v1.5.0.md` (named after the tag), commit, then push a matching tag:
 
 ```
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
 GitHub Actions runs the tests, builds the installer and the portable exe, and publishes them as a release with those notes. Without a notes file, the release lists the merged pull requests instead. The tests also run on every push to `main` and on every pull request.
