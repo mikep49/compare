@@ -122,6 +122,9 @@ let messageDue = 0;
 let messageReturn = null;
 // What the button of the message on show does, if it has one.
 let messageAction = null;
+// Tells whether the side the message on show stands in for is back in
+// sight; see showFileMessage().
+let messageStandsIn = null;
 
 // Texts longer than this, both sides together, are compared away from the
 // page, which shows that it's being done.
@@ -156,6 +159,7 @@ function hideMessage() {
   messageReturn = null;
   messageEl.hidden = true;
   messageAction = null;
+  messageStandsIn = null;
 }
 
 // Runs the time of the message on show, unless it stays or is held.
@@ -184,11 +188,27 @@ function showMessage(text, kind = 'error', duration = kind === 'error' ? null : 
   messageEl.dataset.kind = kind;
   messageEl.setAttribute('role', kind === 'error' ? 'alert' : 'status');
   messageAction = action;
+  messageStandsIn = null;
   messageBtn.hidden = !action;
   messageBtn.textContent = action ? action.label : '';
   messageEl.hidden = false;
   messageLeft = duration;
   runMessageTimer();
+}
+
+// A side says itself why a file couldn't be opened there. The message says
+// it only while the side is out of sight, as `sideInSight` tells, and goes
+// once the side is back: in a small window it would cover the side's
+// buttons.
+function showFileMessage(text, sideInSight) {
+  if (sideInSight()) return;
+  showMessage(text);
+  messageStandsIn = sideInSight;
+}
+
+// Puts away the message of showFileMessage() once its side is in sight.
+function settleFileMessage() {
+  if (messageStandsIn?.()) hideMessage();
 }
 
 function runMessageAction() {
@@ -583,6 +603,11 @@ function createWorkspace(kind) {
   function showFileError(side, name, error) {
     panes[side].error.show(`Couldn't open ${name}`, error);
   }
+
+  // Whether the sides, and what they say about files that couldn't be
+  // opened, are in sight: not while comparing, nor while another workspace
+  // is on show.
+  const sidesInSight = () => !comparing && !root.hidden;
 
   function setText(side, text, file) {
     forgetCleared(side);
@@ -1199,6 +1224,7 @@ function createWorkspace(kind) {
     setText,
     setLoading,
     showFileError,
+    sidesInSight,
     sync,
     goToBlock,
     swap,
@@ -1331,7 +1357,7 @@ function createFilesWorkspace() {
     if (!result.ok) {
       clear(side);
       pane.error.show(`Couldn't read ${file.name}`, result.error);
-      showMessage(`Couldn't read ${file.name}: ${result.error}`);
+      showFileMessage(`Couldn't read ${file.name}: ${result.error}`, () => !root.hidden);
       return;
     }
     pane.file = result;
@@ -1495,12 +1521,14 @@ function activate(kind) {
   }
   active.sync();
   renderTopbar();
+  settleFileMessage();
 }
 
 function toggleComparing() {
   if (active.comparing) closeFind();
   active.setComparing(!active.comparing);
   renderTopbar();
+  settleFileMessage();
 }
 
 // Opens a file on one side of the workspace it belongs in, which need not be
@@ -1554,7 +1582,7 @@ async function loadFile(side, file, { fromExplorer = false } = {}) {
       return;
     }
     origin.showFileError(side, file.name, result.error);
-    showMessage(`Couldn't open ${file.name}: ${result.error}`);
+    showFileMessage(`Couldn't open ${file.name}: ${result.error}`, origin.sidesInSight);
     return;
   }
   let kind = 'docs';
